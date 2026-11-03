@@ -6,6 +6,25 @@ Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, confi
     m_displays->init();
 }
 
+Device Controller::findDevice(const QString &search)
+{
+    for (auto it = m_devices.begin(); it != m_devices.end(); it++)
+        if (search == it.value()->key() || search.startsWith(it.value()->key().append('/')) || search == it.value()->topic() || search.startsWith(it.value()->topic().append('/')))
+            return it.value();
+
+    return Device();
+}
+
+quint8 Controller::getEndpointId(const QString &endpoint)
+{
+    QList <QString> list = endpoint.split('/');
+
+    if (list.count() > 2)
+        return static_cast <quint8> (list.last().toInt());
+
+    return 0;
+}
+
 void Controller::publishLayout(DisplayObject *display) // TODO: check if used more than once
 {
     QList <QByteArray> list = display->layout(); // TODO: check this
@@ -26,6 +45,46 @@ void Controller::publishLayout(DisplayObject *display) // TODO: check if used mo
     }
 
     mqttPublishString(QString("%1/page").arg(topic), QString::number(display->home()));
+}
+
+void Controller::publishData(DisplayObject *display, const QString &filter)
+{
+    for (int i = 0; i < display->items().count(); i++)
+    {
+        const DisplayItem &item = display->items().at(i);
+        const Device &device = findDevice(item.endpoint);
+
+        if (!device.isNull() && (filter.isEmpty() || filter == item.endpoint))
+        {
+            QString topic = QString("hasp/%1/command/p%2b%3").arg(display->id()).arg(item.page).arg(item.id);
+            QVariant value = device->properties().value(getEndpointId(item.endpoint)).value(item.expose); // TODO: map expose to property
+
+            switch (value.type())
+            {
+                case QVariant::Bool:
+                {
+                    QString itemName = item.expose.split('_').value(0);
+                    bool check = itemName == "contact" ? !value.toBool() : value.toBool();
+
+                    if (itemName == "contact")
+                        mqttPublishString(QString("%1.text").arg(topic), QChar(check ? 0xE81C : 0xE81B));
+
+                    mqttPublishString(QString("%1.text_color").arg(topic), check ? itemName == "waterLeak" ? ALARM_COLOR : ACCENT_COLOR : TEXT_COLOR);
+                    break;
+                }
+
+                case QVariant::LongLong:
+                case QVariant::Double:
+                {
+                    mqttPublishString(QString("%1.text").arg(topic), value.toString());
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+    }
 }
 
 void Controller::publishEvent(const QString &name, Event event)
@@ -73,11 +132,14 @@ void Controller::quit(void)
 void Controller::mqttConnected(void)
 {
     mqttSubscribe(mqttTopic("command/%1").arg(serviceTopic()));
+    mqttSubscribe(mqttTopic("service/#"));
 
     for (int i = 0; i < m_displays->count(); i++)
         mqttSubscribe(QString("hasp/%1/LWT").arg(m_displays->at(i)->id()));
 
+    m_devices.clear();
     m_displays->store();
+
     mqttPublishService();
 }
 
@@ -167,6 +229,118 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             }
         }
     }
+    else if (subTopic.startsWith("service/"))
+    {
+        QString type = subTopic.split('/').value(1), service = subTopic.mid(subTopic.indexOf('/') + 1);
+
+        if (coreServices().contains(type) || service == serviceTopic())
+            return;
+
+        if (json.value("status").toString() == "online")
+        {
+            mqttSubscribe(mqttTopic("status/%1").arg(service));
+            return;
+        }
+
+        for (auto it = m_devices.begin(); it != m_devices.end(); it++)
+        {
+            const Device &device = it.value();
+
+            if (!device->topic().startsWith(QString("%1/").arg(service)))
+                continue;
+
+            mqttUnsubscribe(mqttTopic("device/%1").arg(device->topic()));
+            mqttUnsubscribe(mqttTopic("fd/%1/#").arg(device->topic()));
+
+            device->clearTopic();
+            device->setAvailable(false);
+        }
+
+        mqttUnsubscribe(mqttTopic("status/%1").arg(service));
+    }
+    else if (subTopic.startsWith("status/"))
+    {
+        QString type = subTopic.split('/').value(1), service = subTopic.mid(subTopic.indexOf('/') + 1);
+        QJsonArray devices = json.value("devices").toArray();
+        bool names = json.value("names").toBool();
+
+        if (coreServices().contains(type) || service == serviceTopic())
+            return;
+
+        for (auto it = devices.begin(); it != devices.end(); it++)
+        {
+            QJsonObject item = it->toObject();
+            QString name = item.value("name").toString(), id = deviceId(item, type), key, topic;
+            bool check = false;
+
+            if (type == "zigbee" && (item.value("removed").toBool() || !item.value("logicalType").toInt()))
+                continue;
+
+            if (name.isEmpty())
+                name = id;
+
+            key = QString("%1/%2").arg(type, id);
+            topic = QString("%1/%2").arg(service, names ? name : id);
+
+            if (m_devices.contains(key))
+            {
+                const Device &device = m_devices.value(key);
+
+                if (device->topic() != topic)
+                {
+                    if (!device->topic().isEmpty())
+                    {
+                        mqttUnsubscribe(mqttTopic("device/%1").arg(device->topic()));
+                        mqttUnsubscribe(mqttTopic("fd/%1/#").arg(device->topic()));
+                    }
+
+                    device->setTopic(topic);
+                    check = true;
+                }
+            }
+            else
+            {
+                m_devices.insert(key, Device(new DeviceObject(key, topic)));
+                check = true;
+            }
+
+            if (check)
+            {
+                mqttSubscribe(mqttTopic("device/%1").arg(topic));
+                mqttSubscribe(mqttTopic("fd/%1/#").arg(topic));
+                mqttPublish(mqttTopic("command/%1").arg(service), {{"action", "getProperties"}, {"device", names ? name : id}, {"service", serviceTopic()}});
+            }
+        }
+    }
+    else if (subTopic.startsWith("device/"))
+    {
+        const Device &device = findDevice(subTopic.mid(subTopic.indexOf('/') + 1));
+
+        if (device.isNull())
+            return;
+
+        device->setAvailable(json.value("status").toString() == "online");
+    }
+    else if (subTopic.startsWith("fd/"))
+    {
+        QString string = subTopic.mid(subTopic.indexOf('/') + 1);
+        const Device &device = findDevice(string);
+
+        if (device.isNull())
+            return;
+
+        device->properties().insert(getEndpointId(string.replace(device->topic(), device->key())), json.toVariantMap());
+
+        for (int i = 0; i < m_displays->count(); i++)
+        {
+            const Display &display = m_displays->at(i);
+
+            if (display->availability() != Availability::Online)
+                continue;
+
+            publishData(display.data(), string);
+        }
+    }
     else if (topic.name().startsWith("hasp/") && topic.name().endsWith("/LWT"))
     {
         const Display &display = m_displays->byName(topic.name().split('/').value(1));
@@ -181,5 +355,6 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             return;
 
         publishLayout(display.data());
+        publishData(display.data());
     }
 }

@@ -9,6 +9,34 @@
 #include "display.h"
 #include "homed.h"
 
+class DeviceObject
+{
+
+public:
+
+    DeviceObject(const QString &key, const QString &topic) :
+        m_key(key), m_topic(topic), m_available(true) {}
+
+    inline QString key(void) { return m_key; }
+
+    inline QString topic(void) { return m_topic; }
+    inline void setTopic(const QString &value) { m_topic = value; }
+    inline void clearTopic(void) { m_topic.clear(); }
+
+    inline bool available(void) { return m_available; }
+    inline void setAvailable(bool value) { m_available = value; }
+
+    inline QMap <quint8, QMap <QString, QVariant>> &properties(void) { return m_properties; }
+
+private:
+
+    QString m_key, m_topic;
+    bool m_available;
+
+    QMap <quint8, QMap <QString, QVariant>> m_properties;
+
+};
+
 class Controller : public HOMEd
 {
     Q_OBJECT
@@ -43,7 +71,13 @@ private:
     DisplayList *m_displays;
     QMetaEnum m_commands, m_events;
 
+    QMap <QString, Device> m_devices;
+
+    Device findDevice(const QString &search);
+    quint8 getEndpointId(const QString &endpoint);
+
     void publishLayout(DisplayObject *display);
+    void publishData(DisplayObject *display, const QString &filter = QString());
     void publishEvent(const QString &name, Event event);
     void displayEvent(DisplayObject *display, Event event);
 
