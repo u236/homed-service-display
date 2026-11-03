@@ -1,11 +1,11 @@
 #include "controller.h"
-#include "device.h"
+#include "display.h"
 #include "logger.h"
 
 
 
 // NOT REVIEWED
-QList <QByteArray> DeviceObject::layout(void)
+QList <QByteArray> DisplayObject::layout(void)
 {
     QList <QByteArray> list;
     QList <int> sizes = {150, 115, 80};
@@ -72,7 +72,7 @@ QList <QByteArray> DeviceObject::layout(void)
 
 
 
-void DeviceObject::add(QList <QByteArray> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data)
+void DisplayObject::add(QList <QByteArray> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data)
 {
     QJsonObject json = {{"obj", type}, {"page", page}, {"id", id}, {"x", x}, {"y", y}, {"w", width}, {"h", height}};
 
@@ -82,22 +82,22 @@ void DeviceObject::add(QList <QByteArray> &list, const QString &type, quint16 pa
     list.append(QJsonDocument(json).toJson(QJsonDocument::Compact).append('\n'));
 }
 
-DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_timer(new QTimer(this)), m_sync(false)
+DisplayList::DisplayList(QSettings *config, QObject *parent) : QObject(parent), m_timer(new QTimer(this)), m_sync(false)
 {
     m_file.setFileName(config->value("device/database", "/opt/homed-display/database.json").toString());
     m_names = config->value("mqtt/names", false).toBool();
 
-    connect(m_timer, &QTimer::timeout, this, &DeviceList::writeDatabase);
+    connect(m_timer, &QTimer::timeout, this, &DisplayList::writeDatabase);
     m_timer->setSingleShot(true);
 }
 
-DeviceList::~DeviceList(void)
+DisplayList::~DisplayList(void)
 {
     m_sync = true;
     writeDatabase();
 }
 
-void DeviceList::init(void)
+void DisplayList::init(void)
 {
     QJsonObject json;
 
@@ -109,7 +109,7 @@ void DeviceList::init(void)
     m_file.close();
 }
 
-void DeviceList::store(bool sync)
+void DisplayList::store(bool sync)
 {
     if (sync)
         m_sync = true;
@@ -117,7 +117,7 @@ void DeviceList::store(bool sync)
     m_timer->start(STORE_DATABASE_DELAY);
 }
 
-Device DeviceList::byName(const QString &name, int *index)
+Display DisplayList::byName(const QString &name, int *index)
 {
     for (int i = 0; i < count(); i++)
     {
@@ -130,16 +130,16 @@ Device DeviceList::byName(const QString &name, int *index)
         return at(i);
     }
 
-    return Device();
+    return Display();
 }
 
-Device DeviceList::parse(const QJsonObject &json)
+Display DisplayList::parse(const QJsonObject &json)
 {
     QList <QString> list = {"1x1", "1x2", "1x3", "1x4", "2x2", "2x3", "2x4", "3x3", "3x4"};
     QJsonArray pages = json.value("pages").toArray();
     QString id = mqttSafe(json.value("id").toString());
     quint16 width = static_cast <quint16> (json.value("width").toInt()), height = static_cast <quint16> (json.value("height").toInt());
-    Device device;
+    Display display;
 
     for (auto it = pages.begin(); it != pages.end(); it++)
     {
@@ -148,36 +148,36 @@ Device DeviceList::parse(const QJsonObject &json)
         if (list.contains(page.value("layout").toString()) && !page.value("name").toString().trimmed().isEmpty())
             continue;
 
-        return device;
+        return display;
     }
 
     if (id.isEmpty() || !width || !height)
-        return device;
+        return display;
 
-    device = Device(new DeviceObject(id, width, height, static_cast <quint16> (json.value("home").toInt(1)), static_cast <quint16> (json.value("timeout").toInt()), mqttSafe(json.value("name").toString()), pages)); // TODO: check home page range
+    display = Display(new DisplayObject(id, width, height, static_cast <quint16> (json.value("home").toInt(1)), static_cast <quint16> (json.value("timeout").toInt()), mqttSafe(json.value("name").toString()), pages)); // TODO: check home page range
 
     if (json.contains("active"))
-        device->setActive(json.value("active").toBool());
+        display->setActive(json.value("active").toBool());
 
-    return device;
+    return display;
 }
 
-void DeviceList::unserialize(const QJsonArray &devices)
+void DisplayList::unserialize(const QJsonArray &displays)
 {
-    for (auto it = devices.begin(); it != devices.end(); it++)
+    for (auto it = displays.begin(); it != displays.end(); it++)
     {
         QJsonObject json = it->toObject();
-        Device device;
+        Display display;
 
         if (!byName(json.value("id").toString()).isNull() || !byName(json.value("name").toString()).isNull())
             continue;
 
-        device = parse(json);
+        display = parse(json);
 
-        if (device.isNull())
+        if (display.isNull())
             continue;
 
-        append(device);
+        append(display);
     }
 
     if (!count())
@@ -186,23 +186,23 @@ void DeviceList::unserialize(const QJsonArray &devices)
     logInfo << count() << "devices loaded";
 }
 
-QJsonArray DeviceList::serialize(void)
+QJsonArray DisplayList::serialize(void)
 {
     QJsonArray array;
 
     for (int i = 0; i < count(); i++)
     {
-        const Device &device = at(i);
-        QJsonObject json = {{"id", device->id()}, {"width", device->width()}, {"height", device->height()}, {"home", device->home()}, {"active", device->active()}};
+        const Display &display = at(i);
+        QJsonObject json = {{"id", display->id()}, {"width", display->width()}, {"height", display->height()}, {"home", display->home()}, {"active", display->active()}};
 
-        if (device->name() != device->id())
-            json.insert("name", device->name());
+        if (display->name() != display->id())
+            json.insert("name", display->name());
 
-        if (device->timeout())
-            json.insert("timeout", device->timeout());
+        if (display->timeout())
+            json.insert("timeout", display->timeout());
 
-        if (!device->pages().isEmpty())
-            json.insert("pages", device->pages());
+        if (!display->pages().isEmpty())
+            json.insert("pages", display->pages());
 
         array.append(json);
     }
@@ -210,7 +210,7 @@ QJsonArray DeviceList::serialize(void)
     return array;
 }
 
-void DeviceList::writeDatabase(void)
+void DisplayList::writeDatabase(void)
 {
     HOMEd *homed = reinterpret_cast <HOMEd*> (parent());
     QJsonObject json = {{"devices", serialize()}, {"names", m_names}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}};

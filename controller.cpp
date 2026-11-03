@@ -1,15 +1,15 @@
 #include "controller.h"
 #include "logger.h"
 
-Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_devices(new DeviceList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
+Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
-    m_devices->init();
+    m_displays->init();
 }
 
-void Controller::publishLayout(DeviceObject *device) // TODO: check if used more than once
+void Controller::publishLayout(DisplayObject *display) // TODO: check if used more than once
 {
-    QList <QByteArray> list = device->layout(); // TODO: check this
-    QString topic = QString("hasp/%1/command").arg(device->id());
+    QList <QByteArray> list = display->layout(); // TODO: check this
+    QString topic = QString("hasp/%1/command").arg(display->id());
     QByteArray data;
 
     mqttPublishString(QString("%1/clearpage").arg(topic), "all");
@@ -25,7 +25,7 @@ void Controller::publishLayout(DeviceObject *device) // TODO: check if used more
         data.clear();
     }
 
-    mqttPublishString(QString("%1/page").arg(topic), QString::number(device->home()));
+    mqttPublishString(QString("%1/page").arg(topic), QString::number(display->home()));
 }
 
 void Controller::publishEvent(const QString &name, Event event)
@@ -33,15 +33,15 @@ void Controller::publishEvent(const QString &name, Event event)
     mqttPublish(mqttTopic("event/%1").arg(serviceTopic()), {{"device", name}, {"event", m_events.valueToKey(static_cast <int> (event))}});
 }
 
-void Controller::deviceEvent(DeviceObject *device, Event event)
+void Controller::displayEvent(DisplayObject *display, Event event)
 {
-    QString topic = QString("hasp/%1/LWT").arg(device->id());
+    QString topic = QString("hasp/%1/LWT").arg(display->id());
 
     switch (event)
     {
         case Event::aboutToRename:
         case Event::removed:
-            mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), QJsonObject(), true);
+            mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), QJsonObject(), true);
             mqttUnsubscribe(topic);
             break;
 
@@ -55,18 +55,18 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
             break;
     }
 
-    publishEvent(device->name(), event);
+    publishEvent(display->name(), event);
 }
 
 void Controller::quit(void)
 {
-    for (int i = 0; i < m_devices->count(); i++)
+    for (int i = 0; i < m_displays->count(); i++)
     {
-        const Device &device = m_devices->at(i);
-        mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", "offline"}}, true);
+        const Display &display = m_displays->at(i);
+        mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), {{"status", "offline"}}, true);
     }
 
-    delete m_devices;
+    delete m_displays;
     HOMEd::quit();
 }
 
@@ -74,10 +74,10 @@ void Controller::mqttConnected(void)
 {
     mqttSubscribe(mqttTopic("command/%1").arg(serviceTopic()));
 
-    for (int i = 0; i < m_devices->count(); i++)
-        mqttSubscribe(QString("hasp/%1/LWT").arg(m_devices->at(i)->id()));
+    for (int i = 0; i < m_displays->count(); i++)
+        mqttSubscribe(QString("hasp/%1/LWT").arg(m_displays->at(i)->id()));
 
-    m_devices->store();
+    m_displays->store();
     mqttPublishService();
 }
 
@@ -103,30 +103,30 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 int index = -1;
                 QJsonObject data = json.value("data").toObject();
                 QString id = mqttSafe(data.value("id").toString()), name = mqttSafe(data.value("name").toString());
-                Device device = m_devices->byName(json.value("device").toString(), &index), other = m_devices->byName(id);
+                Display display = m_displays->byName(json.value("device").toString(), &index), other = m_displays->byName(id);
 
-                if (device != other && !other.isNull())
+                if (display != other && !other.isNull())
                 {
                     logWarning << "Device" << id << "update failed, identifier already in use";
                     publishEvent(name, Event::idDuplicate);
                     break;
                 }
 
-                other = m_devices->byName(name);
+                other = m_displays->byName(name);
 
-                if (device != other && !other.isNull())
+                if (display != other && !other.isNull())
                 {
                     logWarning << "Device" << name << "update failed, name already in use";
                     publishEvent(name, Event::nameDuplicate);
                     break;
                 }
 
-                if (!device.isNull() && (device->id() != id || device->name() != name))
-                    deviceEvent(device.data(), Event::aboutToRename);
+                if (!display.isNull() && (display->id() != id || display->name() != name))
+                    displayEvent(display.data(), Event::aboutToRename);
 
-                device = m_devices->parse(data);
+                display = m_displays->parse(data);
 
-                if (device.isNull())
+                if (display.isNull())
                 {
                     logWarning << "Device" << name << "update failed, data is incomplete";
                     publishEvent(name, Event::incompleteData);
@@ -135,32 +135,32 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 if (index >= 0)
                 {
-                    m_devices->replace(index, device);
-                    logInfo << device << "successfully updated";
-                    deviceEvent(device.data(), Event::updated);
+                    m_displays->replace(index, display);
+                    logInfo << display << "successfully updated";
+                    displayEvent(display.data(), Event::updated);
                 }
                 else
                 {
-                    m_devices->append(device);
-                    logInfo << device << "successfully added";
-                    deviceEvent(device.data(), Event::added);
+                    m_displays->append(display);
+                    logInfo << display << "successfully added";
+                    displayEvent(display.data(), Event::added);
                 }
 
-                m_devices->store(true);
+                m_displays->store(true);
                 break;
             }
 
             case Command::removeDevice:
             {
                 int index = -1;
-                const Device &device = m_devices->byName(json.value("device").toString(), &index);
+                const Display &display = m_displays->byName(json.value("device").toString(), &index);
 
                 if (index >= 0)
                 {
-                    m_devices->removeAt(index);
-                    logInfo << device << "removed";
-                    deviceEvent(device.data(), Event::removed);
-                    m_devices->store(true);
+                    m_displays->removeAt(index);
+                    logInfo << display << "removed";
+                    displayEvent(display.data(), Event::removed);
+                    m_displays->store(true);
                 }
 
                 break;
@@ -169,17 +169,17 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
     }
     else if (topic.name().startsWith("hasp/") && topic.name().endsWith("/LWT"))
     {
-        const Device &device = m_devices->byName(topic.name().split('/').value(1));
+        const Display &display = m_displays->byName(topic.name().split('/').value(1));
 
-        if (device.isNull() || !device->active())
+        if (display.isNull() || !display->active())
             return;
 
-        device->setAvailability(message == "online" ? Availability::Online : Availability::Offline);
-        mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", device->availability() == Availability::Online ? "online" : "offline"}}, true);
+        display->setAvailability(message == "online" ? Availability::Online : Availability::Offline);
+        mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), {{"status", display->availability() == Availability::Online ? "online" : "offline"}}, true);
 
-        if (device->availability() != Availability::Online)
+        if (display->availability() != Availability::Online)
             return;
 
-        publishLayout(device.data());
+        publishLayout(display.data());
     }
 }

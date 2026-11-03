@@ -6,7 +6,7 @@
 #define SUBSCRIPTION_DELAY  1000
 
 #include <QMetaEnum>
-#include "device.h"
+#include "display.h"
 #include "homed.h"
 
 class Controller : public HOMEd
@@ -40,12 +40,12 @@ public:
 
 private:
 
-    DeviceList *m_devices;
+    DisplayList *m_displays;
     QMetaEnum m_commands, m_events;
 
-    void publishLayout(DeviceObject *device);
+    void publishLayout(DisplayObject *display);
     void publishEvent(const QString &name, Event event);
-    void deviceEvent(DeviceObject *device, Event event);
+    void displayEvent(DisplayObject *display, Event event);
 
 public slots:
 

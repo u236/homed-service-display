@@ -3,8 +3,8 @@ include(../homed-common/homed-endpoint.pri)
 
 HEADERS += \
     controller.h \
-    device.h
+    display.h
 
 SOURCES += \
     controller.cpp \
-    device.cpp
+    display.cpp

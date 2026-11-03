@@ -1,5 +1,5 @@
-#ifndef DEVICE_H
-#define DEVICE_H
+#ifndef DISPLAY_H
+#define DISPLAY_H
 
 
 
@@ -24,12 +24,15 @@
 
 #include "endpoint.h"
 
-class DeviceObject : public AbstractDeviceObject
+class DisplayObject;
+typedef QSharedPointer <DisplayObject> Display;
+
+class DisplayObject : public AbstractDeviceObject
 {
 
 public:
 
-    DeviceObject(const QString &id, quint16 width, quint16 height, quint16 home, quint16 timeout, const QString &name, const QJsonArray &pages) :
+    DisplayObject(const QString &id, quint16 width, quint16 height, quint16 home, quint16 timeout, const QString &name, const QJsonArray &pages) :
         AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_pages(pages), m_width(width), m_height(height), m_home(home), m_timeout(timeout) {}
 
     inline QString id(void) { return m_id; }
@@ -52,22 +55,22 @@ private:
 
 };
 
-class DeviceList : public QObject, public QList <Device>
+class DisplayList : public QObject, public QList <Display>
 {
     Q_OBJECT
 
 public:
 
-    DeviceList(QSettings *config, QObject *parent);
-    ~DeviceList(void);
+    DisplayList(QSettings *config, QObject *parent);
+    ~DisplayList(void);
 
     inline bool names(void) { return m_names; }
 
     void init(void);
     void store(bool sync = false);
 
-    Device byName(const QString &name, int *index = nullptr);
-    Device parse(const QJsonObject &json);
+    Display byName(const QString &name, int *index = nullptr);
+    Display parse(const QJsonObject &json);
 
 private:
 
@@ -76,7 +79,7 @@ private:
     QFile m_file;
     bool m_names, m_sync;
 
-    void unserialize(const QJsonArray &devices);
+    void unserialize(const QJsonArray &displays);
     QJsonArray serialize(void);
 
 private slots:
@@ -85,6 +88,6 @@ private slots:
 
 };
 
-inline QDebug operator << (QDebug debug, const Device &device) { return debug << "device" << device->name(); }
+inline QDebug operator << (QDebug debug, const Display &display) { return debug << "device" << display->name(); }
 
 #endif
