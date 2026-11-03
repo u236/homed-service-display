@@ -9,7 +9,7 @@ QList <QByteArray> DeviceObject::layout(void)
 {
     QList <QByteArray> list;
     QList <int> sizes = {150, 115, 80};
-    QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", " ppm"}, {"power", " W"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
+    QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
     int count = qMin(m_pages.count(), MAX_PAGES);
 
     if (!count)
@@ -25,10 +25,12 @@ QList <QByteArray> DeviceObject::layout(void)
         QJsonArray items = page.value("items").toArray();
         QList <QString> layout = page.value("layout").toString().split('x');
         bool portrait = m_height > m_width, clock = page.value("clock").toBool();
-        int bottom = m_height - (count > 1 ? NAVIGATION_HEIGHT : 0) - (clock ? CLOCK_HEIGHT : 0), rows = clock && layout.value(0) == "3" ? 2 : layout.value(portrait ? 1 : 0).toInt(), columns = layout.value(portrait ? 0 : 1).toInt(), cellWidth = (m_width - CELL_PADDING) / columns - CELL_PADDING, cellHeight = (bottom - (clock ? 0 : CELL_PADDING) - HEADER_HEIGHT - CELL_PADDING) / rows - CELL_PADDING, level = qMax(rows, columns - 1), labelFont = 28 - level * 4, labelGap = labelFont / 2 - 4, labelHeight = labelFont * 5 / 4 + labelGap * 2, size = qMin(qMin(cellWidth, cellHeight - labelHeight), sizes.value(level - 1)), gap = (m_width - columns * size) / (columns + 1), pitch = level > 2 ? qMin(cellHeight + CELL_PADDING, size + labelHeight + ROW_GAP) : cellHeight + CELL_PADDING, top = HEADER_HEIGHT + CELL_PADDING + rows * (cellHeight + CELL_PADDING - pitch) / 2;
+        int header = count > 1 ? HEADER_HEIGHT : 0, bottom = m_height - (count > 1 ? NAVIGATION_HEIGHT : 0) - (clock ? CLOCK_HEIGHT : 0), rows = clock && layout.value(0) == "3" ? 2 : layout.value(portrait ? 1 : 0).toInt(), columns = layout.value(portrait ? 0 : 1).toInt(), cellWidth = (m_width - CELL_PADDING) / columns - CELL_PADDING, cellHeight = (bottom - (clock ? 0 : CELL_PADDING) - header - CELL_PADDING) / rows - CELL_PADDING, level = qMax(rows, columns - 1), labelFont = 28 - level * 4, labelGap = labelFont / 2 - 4, labelHeight = labelFont * 5 / 4 + labelGap * 2, size = qMin(qMin(cellWidth, cellHeight - labelHeight), sizes.value(level - 1)), gap = (m_width - columns * size) / (columns + 1), pitch = qMin(cellHeight + CELL_PADDING, size + labelHeight + ROW_GAP), top = header + CELL_PADDING + rows * (cellHeight + CELL_PADDING - pitch) / 2;
 
         add(list, "obj", i + 1, 1, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}});
-        add(list, "label", i + 1, 2, 0, HEADER_HEIGHT / 2 - 14, m_width, 28, {{"align", "center"}, {"text", page.value("name").toString()}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+
+        if (count > 1)
+            add(list, "label", i + 1, 2, 0, HEADER_HEIGHT / 2 - 14, m_width, 28, {{"align", "center"}, {"text", page.value("name").toString()}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
 
         if (clock)
         {
@@ -39,16 +41,22 @@ QList <QByteArray> DeviceObject::layout(void)
         for (int j = 0; j < items.count() && j < rows * columns; j++)
         {
             QJsonObject item = items.at(j).toObject();
-            QString expose = item.value("scene").toString().isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", name = item.value("name").toString(), text = units.contains(expose) ? QString("--%1").arg(units.value(expose)) : icons.value(expose, expose);
-            int id = (j + 1) * 10, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - size) / 2, font = units.contains(expose) ? size / 4 : icons.contains(expose) ? size / 2 : 24, height = font * 117 / 100;
+            QString expose = item.value("scene").toString().isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = units.value(expose), name = item.value("name").toString(), text = unit.isEmpty() ? icons.value(expose, expose) : "--";
+            bool large = rows * columns == 1 && !unit.isEmpty();
+            int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = units.contains(expose) ? size / 3 : icons.contains(expose) ? size / 2 : 24;
 
-            add(list, "btn", i + 1, id, x, y, size, size, {{"radius", size / 2}, {"border_width", 0}, {"toggle", expose == "switch" || expose == "light"}});
-            add(list, "label", i + 1, id + 1, x, y + (size - height) / 2, size, height, {{"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}});
+            if (large)
+                add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
+            else
+                add(list, "btn", i + 1, id, x, y, size, size, {{"radius", size / 2}, {"border_width", 0}, {"toggle", expose == "switch" || expose == "light"}, {"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}});
 
-            if (name.isEmpty())
+            if (!unit.isEmpty())
+                name = name.isEmpty() ? unit : QString("%1, %2").arg(name, unit);
+
+            if (name.isEmpty()) // TODO: add name fallback
                 continue;
 
-            add(list, "label", i + 1, id + 2, x - gap / 2, y + size + labelGap, size + gap, labelFont * 5 / 4, {{"align", "center"}, {"text", name}, {"text_font", labelFont}, {"text_color", HEADER_COLOR}});
+            add(list, "label", i + 1, id + 1, x - gap / 2, y + height + labelGap, size + gap, labelFont * 5 / 4, {{"align", "center"}, {"text", name}, {"text_font", labelFont}, {"text_color", HEADER_COLOR}});
         }
     }
 
