@@ -29,16 +29,16 @@ class DeviceObject : public AbstractDeviceObject
 
 public:
 
-    DeviceObject(const QString &id, qint16 width, qint16 height, qint16 home, qint16 timeout, const QString &name, const QJsonArray &pages) :
+    DeviceObject(const QString &id, quint16 width, quint16 height, quint16 home, quint16 timeout, const QString &name, const QJsonArray &pages) :
         AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_pages(pages), m_width(width), m_height(height), m_home(home), m_timeout(timeout) {}
 
     inline QString id(void) { return m_id; }
     inline QJsonArray pages(void) { return m_pages; }
 
-    inline qint16 width(void) { return m_width; }
-    inline qint16 height(void) { return m_height; }
-    inline qint16 home(void) { return m_home; }
-    inline qint16 timeout(void) { return m_timeout; } // TODO: implement home page timeout
+    inline quint16 width(void) { return m_width; }
+    inline quint16 height(void) { return m_height; }
+    inline quint16 home(void) { return m_home; }
+    inline quint16 timeout(void) { return m_timeout; } // TODO: implement home page timeout
 
     QList <QByteArray> layout(void);
 
@@ -46,7 +46,9 @@ private:
 
     QString m_id;
     QJsonArray m_pages;
-    qint16 m_width, m_height, m_home, m_timeout;
+    quint16 m_width, m_height, m_home, m_timeout;
+
+    void add(QList <QByteArray> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data = QJsonObject());
 
 };
 

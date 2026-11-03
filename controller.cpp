@@ -47,8 +47,8 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
 
         case Event::added:
         case Event::updated:
+            QTimer::singleShot(SUBSCRIPTION_DELAY, this, [this, topic] () { mqttSubscribe(topic); });
             mqttUnsubscribe(topic);
-            mqttSubscribe(topic);
             break;
 
         default:

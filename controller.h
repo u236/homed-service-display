@@ -3,6 +3,7 @@
 
 #define SERVICE_VERSION     "1.0.0"
 #define CHUNK_SIZE          1920
+#define SUBSCRIPTION_DELAY  1000
 
 #include <QMetaEnum>
 #include "device.h"
