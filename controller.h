@@ -85,7 +85,7 @@ private:
     Device findDevice(const QString &search);
     quint8 getEndpointId(const QString &endpoint);
 
-    void publishLayout(DisplayObject *display);
+    void publishLayout(DisplayObject *display, const QList <QByteArray> &list);
     void publishAvailability(DisplayObject *display, const QString &filter = QString());
     void publishData(DisplayObject *display, const QString &filter = QString());
     void publishEvent(const QString &name, Event event);

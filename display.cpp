@@ -1,3 +1,4 @@
+#include "color.h"
 #include "controller.h"
 #include "display.h"
 #include "logger.h"
@@ -58,7 +59,7 @@ QList <QByteArray> DisplayObject::layout(void)
                 add(list, "label", i + 1, id + 2, x, y + size * 2 / 3 - 2, size, size / 4, {{"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", size / 5}, {"text_color", HEADER_COLOR}});
 
             if (!endpoint.isEmpty())
-                m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), endpoint, item.value("expose").toString()});
+                m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), endpoint, item.value("expose").toString(), item.value("name").toString()});
 
             if (!unit.isEmpty())
                 name = name.isEmpty() ? unit : QString("%1, %2").arg(name, unit);
@@ -77,7 +78,117 @@ QList <QByteArray> DisplayObject::layout(void)
     }
 
     add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
+    return list;
+}
+
+QList <QByteArray> DisplayObject::window(const QString &name, const QJsonObject &options)
+{
+    QList <QByteArray> list;
+    int sliders = 0, rows = 0, color = -1, top, row, y;
+
+    for (int i = 0; i < m_properties.count(); i++)
+    {
+        QString itemName = m_properties.at(i).split('_').value(0);
+
+        if (itemName == "color")
+            color = i;
+        else if (itemName == "level" || itemName == "colorTemperature")
+            sliders++;
+        else if (itemName == "systemMode" || itemName == "operationMode")
+            rows++;
+    }
+
+    top = rows > 1 ? 80 : rows ? 98 : 148;
+    row = rows > 1 ? 318 : 336;
+    y = qMax(66, (m_height - sliders * 50 - (sliders > 1 ? 15 : 0) - (color < 0 ? 0 : 210 + (sliders ? 45 : 0)) + 1) / 2);
+
     add(list, "btn", 0, WINDOW_ID + 1, m_width - 60, 2, 56, 56, {{"parentid", WINDOW_ID}, {"action", QJsonObject {{"up", QJsonArray {QString("p0b%1.hidden 1").arg(WINDOW_ID), QString("p0b%1.hidden").arg(WINDOW_ID)}}}}, {"radius", 28}, {"border_width", 0}, {"bg_opa", 0}, {"text", QString(QChar(0xE156))}, {"text_font", 32}, {"text_color", HEADER_COLOR}});
+    add(list, "label", 0, WINDOW_ID + 2, 40, 16, m_width - 100, 30, {{"parentid", WINDOW_ID}, {"align", "left"}, {"text", name}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+
+    for (int i = 0; i < m_properties.count(); i++)
+    {
+        QString property = m_properties.at(i), itemName = property.split('_').value(0);
+        QJsonObject data = {{"parentid", WINDOW_ID}, {"bg_color20", TEXT_COLOR}, {"bg_color22", TEXT_COLOR}, {"border_color20", BACKGROUND_COLOR}, {"border_width20", 3}};
+
+        if (itemName == "level")
+        {
+            data.insert("min", 0);
+            data.insert("max", 100);
+            data.insert("bg_color10", ACCENT_COLOR);
+        }
+        else if (itemName == "colorTemperature")
+        {
+            QJsonObject option = options.value(options.contains(property) ? property : itemName).toObject();
+            int min = option.value("min").toInt(153), max = option.value("max").toInt(500);
+            Color start = Color::fromCT(min), end = Color::fromCT(max);
+
+            data.insert("min", min);
+            data.insert("max", max);
+            data.insert("bg_opa10", 0);
+            data.insert("bg_color00", QString::asprintf("#%02x%02x%02x", static_cast <int> (start.r() * 255), static_cast <int> (start.g() * 255), static_cast <int> (start.b() * 255)));
+            data.insert("bg_grad_color00", QString::asprintf("#%02x%02x%02x", static_cast <int> (end.r() * 255), static_cast <int> (end.g() * 255), static_cast <int> (end.b() * 255)));
+            data.insert("bg_grad_dir00", 2);
+        }
+        else if (itemName == "temperature")
+        {
+            add(list, "label", 0, WINDOW_ID + 3 + i * 2, (m_width - 210) / 2, top + 130, 210, 24, {{"parentid", WINDOW_ID}, {"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
+            continue;
+        }
+        else if (itemName == "targetTemperature")
+        {
+            QJsonObject option = options.value(property).toObject();
+            double step = option.value("step").toDouble(1);
+
+            if (!option.contains("min") || !option.contains("max"))
+                continue;
+
+            data.insert("min", qRound(option.value("min").toDouble() / step));
+            data.insert("max", qRound(option.value("max").toDouble() / step));
+            data.insert("rotation", 0);
+            data.insert("start_angle", 135);
+            data.insert("end_angle", 45);
+            data.insert("adjustable", true);
+            data.insert("border_side", 0);
+            data.insert("bg_opa", 0);
+            data.insert("line_width", 22);
+            data.insert("line_width10", 22);
+            data.insert("line_color10", ACCENT_COLOR);
+            data.insert("pad_top20", 3);
+            data.insert("pad_bottom20", 3);
+            data.insert("pad_left20", 3);
+            data.insert("pad_right20", 3);
+
+            add(list, "arc", 0, WINDOW_ID + 3 + i * 2, (m_width - 210) / 2, top, 210, 210, data);
+            add(list, "label", 0, WINDOW_ID + 4 + i * 2, (m_width - 210) / 2, top + 70, 210, 56, {{"parentid", WINDOW_ID}, {"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", 48}, {"text_color", TEXT_COLOR}});
+            continue;
+        }
+        else if (itemName == "systemMode" || itemName == "operationMode")
+        {
+            QJsonValue value = options.value(property).toObject().value("enum");
+            QList <QVariant> items = value.isArray() ? value.toArray().toVariantList() : value.toObject().toVariantMap().values();
+            int width = items.isEmpty() ? 0 : (m_width - 80 - (items.count() - 1) * 8) / items.count();
+
+            add(list, "label", 0, WINDOW_ID + 4 + i * 2, 40, row - 30, m_width - 80, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "systemMode" ? "System mode" : "Operation mode"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
+
+            for (int j = 0; j < items.count(); j++)
+                add(list, "btn", 0, WINDOW_ID + 20 + i * 10 + j, 40 + j * (width + 8), row, width, 36, {{"parentid", WINDOW_ID}, {"radius", 18}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", items.at(j).toString()}, {"text_font", 20}, {"text_color", TEXT_COLOR}});
+
+            row += 81;
+            continue;
+        }
+        else
+            continue;
+
+        data.insert("anim_time", 0);
+
+        add(list, "slider", 0, WINDOW_ID + 3 + i * 2, 40, y + 30, m_width - 80, 20, data);
+        add(list, "label", 0, WINDOW_ID + 4 + i * 2, 40, y, m_width - 80, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "level" ? "Level" : "Color temperature"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
+
+        y += 65;
+    }
+
+    if (color >= 0)
+        add(list, "cpicker", 0, WINDOW_ID + 3 + color * 2, (m_width - 210) / 2, sliders ? y + 30 : y, 210, 210, {{"parentid", WINDOW_ID}, {"scale_width", 22}, {"pad_inner", 22}, {"pad_top20", 3}, {"pad_bottom20", 3}, {"pad_left20", 3}, {"pad_right20", 3}, {"border_color20", BACKGROUND_COLOR}, {"border_width20", 3}, {"bg_color10", BACKGROUND_COLOR}, {"mode_fixed", true}});
 
     return list;
 }

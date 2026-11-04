@@ -31,7 +31,7 @@
 struct DisplayItem
 {
     quint16 page, id;
-    QString endpoint, expose;
+    QString endpoint, expose, name;
 };
 
 class DisplayObject;
@@ -61,6 +61,7 @@ public:
     inline QList <DisplayItem> &items(void) { return m_items; }
 
     QList <QByteArray> layout(void);
+    QList <QByteArray> window(const QString &name, const QJsonObject &options);
 
 private:
 

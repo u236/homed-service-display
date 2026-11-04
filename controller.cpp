@@ -26,13 +26,9 @@ quint8 Controller::getEndpointId(const QString &endpoint)
     return 0;
 }
 
-void Controller::publishLayout(DisplayObject *display) // TODO: check if used more than once
+void Controller::publishLayout(DisplayObject *display, const QList <QByteArray> &list)
 {
-    QList <QByteArray> list = display->layout(); // TODO: check this
-    QString topic = QString("hasp/%1/command").arg(display->id());
     QByteArray data;
-
-    mqttPublishString(QString("%1/clearpage").arg(topic), "all");
 
     for (int i = 0; i < list.count(); i++)
     {
@@ -41,11 +37,9 @@ void Controller::publishLayout(DisplayObject *display) // TODO: check if used mo
         if (list.count() > i + 1 && data.length() + list.at(i + 1).length() <= CHUNK_SIZE)
             continue;
 
-        mqttPublishString(QString("%1/jsonl").arg(topic), QString::fromUtf8(data));
+        mqttPublishString(QString("hasp/%1/command/jsonl").arg(display->id()), QString::fromUtf8(data));
         data.clear();
     }
-
-    mqttPublishString(QString("%1/page").arg(topic), QString::number(display->home()));
 }
 
 void Controller::publishAvailability(DisplayObject *display, const QString &filter)
@@ -95,8 +89,8 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
 
                 case 2: // thermostat
                 {
-                    mqttPublishString(QString("hasp/%1/command/p%2b%3.text").arg(display->id()).arg(item.page).arg(item.id + 2), properties.value("targetTemperature").toString());
-                    mqttPublishString(QString("%1.text").arg(topic), properties.value("temperature").toString());
+                    mqttPublishString(QString("hasp/%1/command/p%2b%3.text").arg(display->id()).arg(item.page).arg(item.id + 2), properties.value("temperature").toString());
+                    mqttPublishString(QString("%1.text").arg(topic), properties.value("targetTemperature").toString());
                     mqttPublishString(QString("%1.text_color").arg(topic), properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR);
                     break;
                 }
@@ -424,18 +418,23 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
     {
         const Display &display = m_displays->byName(topic.name().split('/').value(1));
 
-        if (display.isNull() || !display->active())
-            return;
+        if (!display.isNull() && display->active())
+        {
+            QString topic = QString("hasp/%1/command").arg(display->id());
 
-        display->setAvailability(message == "online" ? Availability::Online : Availability::Offline);
-        mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), {{"status", display->availability() == Availability::Online ? "online" : "offline"}}, true);
+            display->setAvailability(message == "online" ? Availability::Online : Availability::Offline);
+            mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), {{"status", display->availability() == Availability::Online ? "online" : "offline"}}, true);
 
-        if (display->availability() != Availability::Online)
-            return;
+            if (display->availability() != Availability::Online)
+                return;
 
-        publishLayout(display.data());
-        publishAvailability(display.data());
-        publishData(display.data());
+            mqttPublishString(QString("%1/clearpage").arg(topic), "all");
+            publishLayout(display.data(), display->layout());
+            mqttPublishString(QString("%1/page").arg(topic), QString::number(display->home()));
+
+            publishAvailability(display.data());
+            publishData(display.data());
+        }
     }
     else if (topic.name().startsWith("hasp/") && topic.name().split('/').value(2) == "state")
     {
@@ -454,7 +453,20 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             return;
         }
 
-        if (event != "up" && event != "long")
+        if (event == "changed" && !expression.cap(1).toInt() && display->properties().value((expression.cap(2).toInt() - WINDOW_ID - 3) / 2) == "targetTemperature")
+        {
+            const Device &device = findDevice(display->endpoint());
+
+            if (!device.isNull())
+            {
+                quint8 endpointId = getEndpointId(display->endpoint());
+                mqttPublishString(QString("hasp/%1/command/p0b%2.text").arg(display->id()).arg(expression.cap(2).toInt() + 1), QString::number(json.value("val").toInt() * device->exposes().value(endpointId ? QString::number(endpointId) : "common").toObject().value("options").toObject().value("targetTemperature").toObject().value("step").toDouble(1)));
+            }
+
+            return;
+        }
+
+        if (event != "long" && event != "up")
             return;
 
         for (int i = 0; i < display->items().count(); i++)
@@ -494,6 +506,8 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                         display->properties().append(property);
                     }
 
+                    mqttPublishString(QString("hasp/%1/command/p0b%2.clear").arg(display->id()).arg(WINDOW_ID), QString());
+                    publishLayout(display.data(), display->window(item.name, options));
                     mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "0");
                 }
 
