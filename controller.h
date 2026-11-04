@@ -77,8 +77,11 @@ private:
     quint8 getEndpointId(const QString &endpoint);
 
     void publishLayout(DisplayObject *display);
+    void publishAvailability(DisplayObject *display, const QString &filter = QString());
     void publishData(DisplayObject *display, const QString &filter = QString());
     void publishEvent(const QString &name, Event event);
+
+    void updateAvailability(const QString &key);
     void displayEvent(DisplayObject *display, Event event);
 
 public slots:

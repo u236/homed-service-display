@@ -47,6 +47,25 @@ void Controller::publishLayout(DisplayObject *display) // TODO: check if used mo
     mqttPublishString(QString("%1/page").arg(topic), QString::number(display->home()));
 }
 
+void Controller::publishAvailability(DisplayObject *display, const QString &filter)
+{
+    for (int i = 0; i < display->items().count(); i++)
+    {
+        const DisplayItem &item = display->items().at(i);
+        const Device &device = findDevice(item.endpoint);
+
+        if (filter.isEmpty() || filter == item.endpoint || item.endpoint.startsWith(QString("%1/").arg(filter)))
+        {
+            QString topic = QString("hasp/%1/command/p%2b").arg(display->id()).arg(item.page);
+            bool check = !device.isNull() && device->available();
+
+            mqttPublishString(QString("%1%2.enabled").arg(topic).arg(item.id), check ? "1" : "0");
+            mqttPublishString(QString("%1%2.text_color").arg(topic).arg(item.id), check ? TEXT_COLOR : DISABLED_COLOR);
+            mqttPublishString(QString("%1%2.text_color").arg(topic).arg(item.id + 1), check ? HEADER_COLOR : DISABLED_COLOR);
+        }
+    }
+}
+
 void Controller::publishData(DisplayObject *display, const QString &filter)
 {
     QList <QString> list = {"switch", "light", "thermostat"};
@@ -56,7 +75,7 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
         const DisplayItem &item = display->items().at(i);
         const Device &device = findDevice(item.endpoint);
 
-        if (!device.isNull() && (filter.isEmpty() || filter == item.endpoint))
+        if (!device.isNull() && (filter.isEmpty() || filter == item.endpoint || item.endpoint.startsWith(QString("%1/").arg(filter))))
         {
             QMap <QString, QVariant> properties = device->properties().value(getEndpointId(item.endpoint));
             QString itemName = item.expose.split('_').value(0), topic = QString("hasp/%1/command/p%2b%3").arg(display->id()).arg(item.page).arg(item.id);
@@ -110,6 +129,20 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
 void Controller::publishEvent(const QString &name, Event event)
 {
     mqttPublish(mqttTopic("event/%1").arg(serviceTopic()), {{"device", name}, {"event", m_events.valueToKey(static_cast <int> (event))}});
+}
+
+void Controller::updateAvailability(const QString &key)
+{
+    for (int i = 0; i < m_displays->count(); i++)
+    {
+        const Display &display = m_displays->at(i);
+
+        if (display->availability() != Availability::Online)
+            continue;
+
+        publishAvailability(display.data(), key);
+        publishData(display.data(), key);
+    }
 }
 
 void Controller::displayEvent(DisplayObject *display, Event event)
@@ -278,6 +311,8 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
             device->clearTopic();
             device->setAvailable(false);
+
+            updateAvailability(device->key());
         }
 
         mqttUnsubscribe(mqttTopic("status/%1").arg(service));
@@ -325,6 +360,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             else
             {
                 m_devices.insert(key, Device(new DeviceObject(key, topic)));
+                updateAvailability(key);
                 check = true;
             }
 
@@ -332,18 +368,20 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             {
                 mqttSubscribe(mqttTopic("device/%1").arg(topic));
                 mqttSubscribe(mqttTopic("fd/%1/#").arg(topic));
-                mqttPublish(mqttTopic("command/%1").arg(service), {{"action", "getProperties"}, {"device", names ? name : id}, {"service", serviceTopic()}});
+                mqttPublish(mqttTopic("command/%1").arg(service), {{"action", "getProperties"}, {"device", names ? name : id}, {"service", "display"}});
             }
         }
     }
     else if (subTopic.startsWith("device/"))
     {
         const Device &device = findDevice(subTopic.mid(subTopic.indexOf('/') + 1));
+        bool status = json.value("status").toString() == "online";
 
-        if (device.isNull())
+        if (device.isNull() || device->available() == status)
             return;
 
-        device->setAvailable(json.value("status").toString() == "online");
+        device->setAvailable(status);
+        updateAvailability(device->key());
     }
     else if (subTopic.startsWith("fd/"))
     {
@@ -379,6 +417,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             return;
 
         publishLayout(display.data());
+        publishAvailability(display.data());
         publishData(display.data());
     }
     else if (topic.name().startsWith("hasp/") && topic.name().split('/').value(2) == "state")

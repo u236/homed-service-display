@@ -16,6 +16,7 @@
 
 #define BACKGROUND_COLOR            "#000000"
 #define HEADER_COLOR                "#888888"
+#define DISABLED_COLOR              "#555555"
 #define ACCENT_COLOR                "#f6aa39"
 #define TEXT_COLOR                  "#ffffff"
 #define ALARM_COLOR                 "#f44336"
