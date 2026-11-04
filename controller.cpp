@@ -444,7 +444,17 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
         QString event = json.value("event").toString();
         const Display &display = m_displays->byName(list.value(1));
 
-        if (display.isNull() || display->availability() != Availability::Online || !expression.exactMatch(list.value(3)) || (event != "up" && event != "long"))
+        if (display.isNull() || display->availability() != Availability::Online || !expression.exactMatch(list.value(3)))
+            return;
+
+        if (list.value(3) == QString("p0b%1").arg(WINDOW_ID) && json.value("hidden").toBool())
+        {
+            display->setEndpoint(QString());
+            display->properties().clear();
+            return;
+        }
+
+        if (event != "up" && event != "long")
             return;
 
         for (int i = 0; i < display->items().count(); i++)
@@ -454,6 +464,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             if (item.page == expression.cap(1).toInt() && item.id == expression.cap(2).toInt())
             {
                 QString itemName = item.expose.split('_').value(0);
+                quint8 endpointId = getEndpointId(item.endpoint);
                 const Device &device = findDevice(item.endpoint);
 
                 if (device.isNull() || !device->available())
@@ -461,11 +472,30 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 if (event == "up" && (itemName == "switch" || itemName == "light"))
                 {
-                    quint8 endpointId = getEndpointId(item.endpoint);
                     mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{QString(item.expose).replace(itemName, "status"), "toggle"}});
+                    break;
                 }
-                else if (itemName == "light" || itemName == "thermostat")
+
+                if (itemName == "light" || itemName == "thermostat")
+                {
+                    QJsonObject options = device->exposes().value(endpointId ? QString::number(endpointId) : "common").toObject().value("options").toObject();
+                    QJsonArray controls = itemName == "light" ? options.value(item.expose).toArray() : QJsonArray {"temperature", "targetTemperature", "systemMode", "operationMode"};
+
+                    display->setEndpoint(item.endpoint);
+                    display->properties().clear();
+
+                    for (auto it = controls.begin(); it != controls.end(); it++)
+                    {
+                        QString property = QString(item.expose).replace(itemName, it->toString());
+
+                        if (property.startsWith("colorMode") || (itemName == "thermostat" && property != "temperature" && !options.contains(property)))
+                            continue;
+
+                        display->properties().append(property);
+                    }
+
                     mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "0");
+                }
 
                 break;
             }

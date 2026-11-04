@@ -12,6 +12,8 @@ QList <QByteArray> DisplayObject::layout(void)
     QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
     int count = qMin(m_pages.count(), MAX_PAGES);
 
+    m_endpoint.clear();
+    m_properties.clear();
     m_items.clear();
 
     if (!count)
@@ -75,7 +77,7 @@ QList <QByteArray> DisplayObject::layout(void)
     }
 
     add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
-    add(list, "btn", 0, WINDOW_ID + 1, m_width - 60, 2, 56, 56, {{"parentid", WINDOW_ID}, {"action", QJsonObject {{"up", QString("p0b%1.hidden 1").arg(WINDOW_ID)}}}, {"radius", 28}, {"border_width", 0}, {"bg_opa", 0}, {"text", QString(QChar(0xE156))}, {"text_font", 32}, {"text_color", HEADER_COLOR}});
+    add(list, "btn", 0, WINDOW_ID + 1, m_width - 60, 2, 56, 56, {{"parentid", WINDOW_ID}, {"action", QJsonObject {{"up", QJsonArray {QString("p0b%1.hidden 1").arg(WINDOW_ID), QString("p0b%1.hidden").arg(WINDOW_ID)}}}}, {"radius", 28}, {"border_width", 0}, {"bg_opa", 0}, {"text", QString(QChar(0xE156))}, {"text_font", 32}, {"text_color", HEADER_COLOR}});
 
     return list;
 }

@@ -47,22 +47,29 @@ public:
 
     inline QString id(void) { return m_id; }
 
+    inline QString endpoint(void) { return m_endpoint; }
+    inline void setEndpoint(const QString &value) { m_endpoint = value; }
+
     inline quint16 width(void) { return m_width; }
     inline quint16 height(void) { return m_height; }
     inline quint16 home(void) { return m_home; }
     inline quint16 timeout(void) { return m_timeout; } // TODO: implement home page timeout
 
     inline QJsonArray pages(void) { return m_pages; }
+
+    inline QList <QString> &properties(void) { return m_properties; }
     inline QList <DisplayItem> &items(void) { return m_items; }
 
     QList <QByteArray> layout(void);
 
 private:
 
-    QString m_id;
+    QString m_id, m_endpoint;
     quint16 m_width, m_height, m_home, m_timeout;
 
     QJsonArray m_pages;
+
+    QList <QString> m_properties;
     QList <DisplayItem> m_items;
 
     void add(QList <QByteArray> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data = QJsonObject());
