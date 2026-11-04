@@ -9,7 +9,7 @@ QList <QByteArray> DisplayObject::layout(void)
 {
     QList <QByteArray> list;
     QList <int> sizes = {150, 115, 80};
-    QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
+    QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
     int count = qMin(m_pages.count(), MAX_PAGES);
 
     m_items.clear();
@@ -44,13 +44,16 @@ QList <QByteArray> DisplayObject::layout(void)
         {
             QJsonObject item = items.at(j).toObject();
             QString endpoint = item.value("endpoint").toString(), expose = item.value("scene").toString().isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = units.value(expose), name = item.value("name").toString(), text = unit.isEmpty() ? icons.value(expose, expose) : "--";
-            bool large = rows * columns == 1 && !unit.isEmpty();
+            bool large = rows * columns == 1 && !unit.isEmpty() && expose != "thermostat";
             int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = units.contains(expose) ? size / 3 : icons.contains(expose) ? size / 2 : 24;
 
             if (large)
                 add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
             else
                 add(list, "btn", i + 1, id, x, y, size, size, {{"radius", size / 2}, {"border_width", 0}, {"toggle", expose == "switch" || expose == "light"}, {"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}});
+
+            if (expose == "thermostat")
+                add(list, "label", i + 1, id + 2, x, y + size * 2 / 3 - 2, size, size / 4, {{"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", size / 5}, {"text_color", HEADER_COLOR}});
 
             if (!endpoint.isEmpty())
                 m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), endpoint, item.value("expose").toString()});

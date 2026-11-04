@@ -49,6 +49,8 @@ void Controller::publishLayout(DisplayObject *display) // TODO: check if used mo
 
 void Controller::publishData(DisplayObject *display, const QString &filter)
 {
+    QList <QString> list = {"switch", "light", "thermostat"};
+
     for (int i = 0; i < display->items().count(); i++)
     {
         const DisplayItem &item = display->items().at(i);
@@ -56,37 +58,50 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
 
         if (!device.isNull() && (filter.isEmpty() || filter == item.endpoint))
         {
+            QMap <QString, QVariant> properties = device->properties().value(getEndpointId(item.endpoint));
             QString itemName = item.expose.split('_').value(0), topic = QString("hasp/%1/command/p%2b%3").arg(display->id()).arg(item.page).arg(item.id);
-            QVariant value = device->properties().value(getEndpointId(item.endpoint)).value(itemName == "light" || itemName == "switch" ? "status" : item.expose); // TODO: map expose to property
 
-            switch (value.type())
+            if (properties.isEmpty())
+                continue;
+
+            switch (list.indexOf(itemName))
             {
-                case QVariant::Bool:
+                case 0: // switch
+                case 1: // light
                 {
-                    bool check = itemName == "contact" ? !value.toBool() : value.toBool();
-
-                    if (itemName == "contact")
-                        mqttPublishString(QString("%1.text").arg(topic), QChar(check ? 0xE81C : 0xE81B));
-
-                    mqttPublishString(QString("%1.text_color").arg(topic), check ? itemName == "waterLeak" ? ALARM_COLOR : ACCENT_COLOR : TEXT_COLOR);
+                    mqttPublishString(QString("%1.val").arg(topic), properties.value(QString(item.expose).replace(itemName, "status")).toString() == "on" ? "1" : "0");
                     break;
                 }
 
-                case QVariant::LongLong:
-                case QVariant::Double:
+                case 2: // thermostat
                 {
-                    mqttPublishString(QString("%1.text").arg(topic), value.toString());
-                    break;
-                }
-
-                case QVariant::String:
-                {
-                    mqttPublishString(QString("%1.val").arg(topic), value.toString() == "on" ? "1" : "0");
+                    mqttPublishString(QString("hasp/%1/command/p%2b%3.text").arg(display->id()).arg(item.page).arg(item.id + 2), properties.value("targetTemperature").toString());
+                    mqttPublishString(QString("%1.text").arg(topic), properties.value("temperature").toString());
+                    mqttPublishString(QString("%1.text_color").arg(topic), properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR);
                     break;
                 }
 
                 default:
+                {
+                    QVariant value = properties.value(item.expose);
+
+                    if (!value.isValid())
+                        break;
+
+                    if (value.type() == QVariant::Bool)
+                    {
+                        bool check = itemName == "contact" ? !value.toBool() : value.toBool();
+
+                        if (itemName == "contact")
+                            mqttPublishString(QString("%1.text").arg(topic), QChar(check ? 0xE81C : 0xE81B));
+
+                        mqttPublishString(QString("%1.text_color").arg(topic), check ? itemName == "waterLeak" ? ALARM_COLOR : ACCENT_COLOR : TEXT_COLOR);
+                        break;
+                    }
+
+                    mqttPublishString(QString("%1.text").arg(topic), value.toString());
                     break;
+                }
             }
         }
     }
@@ -387,10 +402,10 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 if (device.isNull() || !device->available())
                     break;
 
-                if (itemName == "light" || itemName == "switch")
+                if (itemName == "switch" || itemName == "light")
                 {
                     quint8 endpointId = getEndpointId(item.endpoint);
-                    mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{"status", json.value("val").toInt() ? "on" : "off"}});
+                    mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{QString(item.expose).replace(itemName, "status"), json.value("val").toInt() ? "on" : "off"}});
                 }
 
                 break;
