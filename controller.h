@@ -26,12 +26,21 @@ public:
     inline bool available(void) { return m_available; }
     inline void setAvailable(bool value) { m_available = value; }
 
+    inline QJsonObject exposes(void) { return m_exposes; }
+    inline void setExposes(const QJsonObject &value) { m_exposes = value; }
+
+    inline QByteArray hash(void) { return m_hash; }
+    inline void setHash(const QByteArray &value) { m_hash = value; }
+
     inline QMap <quint8, QMap <QString, QVariant>> &properties(void) { return m_properties; }
 
 private:
 
     QString m_key, m_topic;
     bool m_available;
+
+    QJsonObject m_exposes;
+    QByteArray m_hash;
 
     QMap <quint8, QMap <QString, QVariant>> m_properties;
 

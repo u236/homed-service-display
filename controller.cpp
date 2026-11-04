@@ -1,3 +1,4 @@
+#include <QCryptographicHash>
 #include "controller.h"
 #include "logger.h"
 
@@ -307,6 +308,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 continue;
 
             mqttUnsubscribe(mqttTopic("device/%1").arg(device->topic()));
+            mqttUnsubscribe(mqttTopic("expose/%1").arg(device->topic()));
             mqttUnsubscribe(mqttTopic("fd/%1/#").arg(device->topic()));
 
             device->clearTopic();
@@ -350,6 +352,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                     if (!device->topic().isEmpty())
                     {
                         mqttUnsubscribe(mqttTopic("device/%1").arg(device->topic()));
+                        mqttUnsubscribe(mqttTopic("expose/%1").arg(device->topic()));
                         mqttUnsubscribe(mqttTopic("fd/%1/#").arg(device->topic()));
                     }
 
@@ -367,8 +370,8 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             if (check)
             {
                 mqttSubscribe(mqttTopic("device/%1").arg(topic));
-                mqttSubscribe(mqttTopic("fd/%1/#").arg(topic));
-                mqttPublish(mqttTopic("command/%1").arg(service), {{"action", "getProperties"}, {"device", names ? name : id}, {"service", "display"}});
+                mqttSubscribe(mqttTopic("expose/%1").arg(topic));
+                m_devices.value(key)->setHash(QByteArray());
             }
         }
     }
@@ -382,6 +385,20 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         device->setAvailable(status);
         updateAvailability(device->key());
+    }
+    else if (subTopic.startsWith("expose/"))
+    {
+        const Device &device = findDevice(subTopic.mid(subTopic.indexOf('/') + 1));
+        QByteArray hash = QCryptographicHash::hash(message, QCryptographicHash::Md5);
+
+        if (device.isNull() || device->hash() == hash)
+            return;
+
+        device->setExposes(json);
+        device->setHash(hash);
+
+        mqttSubscribe(mqttTopic("fd/%1/#").arg(device->topic()));
+        mqttPublish(mqttTopic("command/%1").arg(device->topic().mid(0, device->topic().lastIndexOf('/'))), {{"action", "getProperties"}, {"device", device->topic().split('/').last()}, {"service", "display"}});
     }
     else if (subTopic.startsWith("fd/"))
     {
