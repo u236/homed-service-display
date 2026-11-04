@@ -113,7 +113,7 @@ QList <QByteArray> DisplayObject::window(const QString &name, const QJsonObject 
         if (itemName == "level")
         {
             data.insert("min", 0);
-            data.insert("max", 100);
+            data.insert("max", 255);
             data.insert("bg_color10", ACCENT_COLOR);
         }
         else if (itemName == "colorTemperature")

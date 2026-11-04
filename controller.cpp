@@ -63,7 +63,66 @@ void Controller::publishAvailability(DisplayObject *display, const QString &filt
 
 void Controller::publishData(DisplayObject *display, const QString &filter)
 {
-    QList <QString> list = {"switch", "light", "thermostat"};
+    const Device &device = findDevice(display->endpoint());
+
+    if (!device.isNull() && (filter.isEmpty() || filter == display->endpoint() || display->endpoint().startsWith(QString("%1/").arg(filter))))
+    {
+        QList <QString> list = {"level", "colorTemperature", "color", "temperature", "targetTemperature", "systemMode", "operationMode"};
+        quint8 endpointId = getEndpointId(display->endpoint());
+        QMap <QString, QVariant> properties = device->properties().value(endpointId);
+        QJsonObject options = device->exposes().value(endpointId ? QString::number(endpointId) : "common").toObject().value("options").toObject();
+
+        for (int i = 0; i < display->properties().count(); i++)
+        {
+            QString property = display->properties().at(i), itemName = property.split('_').value(0), topic = QString("hasp/%1/command/p0b").arg(display->id());
+            int id = WINDOW_ID + 3 + i * 2;
+
+            if (!properties.contains(property))
+                continue;
+
+            switch (list.indexOf(itemName))
+            {
+                case 0: // level
+                case 1: // colorTemperature
+                {
+                    mqttPublishString(QString("%1%2.val").arg(topic).arg(id), QString::number(properties.value(property).toInt()));
+                    break;
+                }
+
+                case 2: // color
+                {
+                    QList <QVariant> color = properties.value(property).toList();
+                    mqttPublishString(QString("%1%2.color").arg(topic).arg(id), QString::asprintf("#%02x%02x%02x", color.value(0).toInt(), color.value(1).toInt(), color.value(2).toInt()));
+                    break;
+                }
+
+                case 3: // temperature
+                {
+                    mqttPublishString(QString("%1%2.text").arg(topic).arg(id), properties.value(property).toString());
+                    break;
+                }
+
+                case 4: // targetTemperature
+                {
+                    mqttPublishString(QString("%1%2.val").arg(topic).arg(id), QString::number(qRound(properties.value(property).toDouble() / options.value(property).toObject().value("step").toDouble(1))));
+                    mqttPublishString(QString("%1%2.text").arg(topic).arg(id + 1), properties.value(property).toString());
+                    break;
+                }
+
+                case 5: // systemMode
+                case 6: // operationMode
+                {
+                    QJsonValue value = options.value(property).toObject().value("enum");
+                    QList <QVariant> items = value.isArray() ? value.toArray().toVariantList() : value.toObject().toVariantMap().values();
+
+                    for (int j = 0; j < items.count(); j++)
+                        mqttPublishString(QString("%1%2.bg_color").arg(topic).arg(WINDOW_ID + 20 + i * 10 + j), items.at(j) == properties.value(property) ? ACCENT_COLOR : BUTTON_COLOR);
+
+                    break;
+                }
+            }
+        }
+    }
 
     for (int i = 0; i < display->items().count(); i++)
     {
@@ -72,6 +131,7 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
 
         if (!device.isNull() && (filter.isEmpty() || filter == item.endpoint || item.endpoint.startsWith(QString("%1/").arg(filter))))
         {
+            QList <QString> list = {"switch", "light", "thermostat"};
             QMap <QString, QVariant> properties = device->properties().value(getEndpointId(item.endpoint));
             QString itemName = item.expose.split('_').value(0), topic = QString("hasp/%1/command/p%2b%3").arg(display->id()).arg(item.page).arg(item.id);
 
@@ -126,7 +186,7 @@ void Controller::publishEvent(const QString &name, Event event)
     mqttPublish(mqttTopic("event/%1").arg(serviceTopic()), {{"device", name}, {"event", m_events.valueToKey(static_cast <int> (event))}});
 }
 
-void Controller::updateAvailability(const QString &key)
+void Controller::updateAvailability(const Device &device)
 {
     for (int i = 0; i < m_displays->count(); i++)
     {
@@ -135,8 +195,15 @@ void Controller::updateAvailability(const QString &key)
         if (display->availability() != Availability::Online)
             continue;
 
-        publishAvailability(display.data(), key);
-        publishData(display.data(), key);
+        if (!device->available() && (display->endpoint() == device->key() || display->endpoint().startsWith(QString("%1/").arg(device->key()))))
+        {
+            mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "1");
+            display->setEndpoint(QString());
+            display->properties().clear();
+        }
+
+        publishAvailability(display.data(), device->key());
+        publishData(display.data(), device->key());
     }
 }
 
@@ -308,7 +375,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             device->clearTopic();
             device->setAvailable(false);
 
-            updateAvailability(device->key());
+            updateAvailability(device);
         }
 
         mqttUnsubscribe(mqttTopic("status/%1").arg(service));
@@ -357,7 +424,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             else
             {
                 m_devices.insert(key, Device(new DeviceObject(key, topic)));
-                updateAvailability(key);
+                updateAvailability(m_devices.value(key));
                 check = true;
             }
 
@@ -378,7 +445,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             return;
 
         device->setAvailable(status);
-        updateAvailability(device->key());
+        updateAvailability(device);
     }
     else if (subTopic.startsWith("expose/"))
     {
@@ -508,6 +575,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                     mqttPublishString(QString("hasp/%1/command/p0b%2.clear").arg(display->id()).arg(WINDOW_ID), QString());
                     publishLayout(display.data(), display->window(item.name, options));
+                    publishData(display.data(), item.endpoint);
                     mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "0");
                 }
 

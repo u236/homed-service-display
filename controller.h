@@ -90,7 +90,7 @@ private:
     void publishData(DisplayObject *display, const QString &filter = QString());
     void publishEvent(const QString &name, Event event);
 
-    void updateAvailability(const QString &key);
+    void updateAvailability(const Device &device);
     void displayEvent(DisplayObject *display, Event event);
 
 public slots:
