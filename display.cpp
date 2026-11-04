@@ -50,7 +50,7 @@ QList <QByteArray> DisplayObject::layout(void)
             if (large)
                 add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
             else
-                add(list, "btn", i + 1, id, x, y, size, size, {{"radius", size / 2}, {"border_width", 0}, {"toggle", expose == "switch" || expose == "light"}, {"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}, {"text_color05", DISABLED_COLOR}});
+                add(list, "btn", i + 1, id, x, y, size, size, {{"radius", size / 2}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"bg_color04", BUTTON_COLOR}, {"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}});
 
             if (expose == "thermostat")
                 add(list, "label", i + 1, id + 2, x, y + size * 2 / 3 - 2, size, size / 4, {{"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", size / 5}, {"text_color", HEADER_COLOR}});
@@ -73,6 +73,9 @@ QList <QByteArray> DisplayObject::layout(void)
         int width = (m_width - (count - 1) * NAVIGATION_GAP) / count, x = i * (width + NAVIGATION_GAP);
         add(list, "btn", 0, i + 1, x, m_height - NAVIGATION_HEIGHT, i < count - 1 ? width : m_width - x, NAVIGATION_HEIGHT, {{"action", QJsonObject {{"down", QString("page %1").arg(i + 1)}}}, {"radius", 0}, {"border_width", 0}, {"bg_color", ACCENT_COLOR}, {"text", m_pages.at(i).toObject().value("name").toString()}, {"text_font", 24}, {"text_color", TEXT_COLOR}});
     }
+
+    add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
+    add(list, "btn", 0, WINDOW_ID + 1, m_width - 60, 2, 56, 56, {{"parentid", WINDOW_ID}, {"action", QJsonObject {{"up", QString("p0b%1.hidden 1").arg(WINDOW_ID)}}}, {"radius", 28}, {"border_width", 0}, {"bg_opa", 0}, {"text", QString(QChar(0xE156))}, {"text_font", 32}, {"text_color", HEADER_COLOR}});
 
     return list;
 }

@@ -88,7 +88,7 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
                 case 0: // switch
                 case 1: // light
                 {
-                    mqttPublishString(QString("%1.val").arg(topic), properties.value(QString(item.expose).replace(itemName, "status")).toString() == "on" ? "1" : "0");
+                    mqttPublishString(QString("%1.bg_color").arg(topic), properties.value(QString(item.expose).replace(itemName, "status")).toString() == "on" ? ACCENT_COLOR : BUTTON_COLOR);
                     break;
                 }
 
@@ -424,9 +424,10 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
     {
         QRegExp expression("p(\\d+)b(\\d+)");
         QList <QString> list = topic.name().split('/');
+        QString event = json.value("event").toString();
         const Display &display = m_displays->byName(list.value(1));
 
-        if (display.isNull() || display->availability() != Availability::Online || !expression.exactMatch(list.value(3)) || json.value("event").toString() != "up")
+        if (display.isNull() || display->availability() != Availability::Online || !expression.exactMatch(list.value(3)) || (event != "up" && event != "long"))
             return;
 
         for (int i = 0; i < display->items().count(); i++)
@@ -441,11 +442,13 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 if (device.isNull() || !device->available())
                     break;
 
-                if (itemName == "switch" || itemName == "light")
+                if (event == "up" && (itemName == "switch" || itemName == "light"))
                 {
                     quint8 endpointId = getEndpointId(item.endpoint);
-                    mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{QString(item.expose).replace(itemName, "status"), json.value("val").toInt() ? "on" : "off"}});
+                    mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{QString(item.expose).replace(itemName, "status"), "toggle"}});
                 }
+                else if (itemName == "light" || itemName == "thermostat")
+                    mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "0");
 
                 break;
             }

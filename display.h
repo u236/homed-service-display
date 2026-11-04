@@ -13,9 +13,11 @@
 #define CLOCK_HEIGHT                120
 #define CELL_PADDING                10
 #define ROW_GAP                     12
+#define WINDOW_ID                   10
 
 #define BACKGROUND_COLOR            "#000000"
 #define HEADER_COLOR                "#888888"
+#define BUTTON_COLOR                "#616161"
 #define DISABLED_COLOR              "#555555"
 #define ACCENT_COLOR                "#f6aa39"
 #define TEXT_COLOR                  "#ffffff"
