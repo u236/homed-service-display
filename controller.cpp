@@ -56,14 +56,13 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
 
         if (!device.isNull() && (filter.isEmpty() || filter == item.endpoint))
         {
-            QString topic = QString("hasp/%1/command/p%2b%3").arg(display->id()).arg(item.page).arg(item.id);
-            QVariant value = device->properties().value(getEndpointId(item.endpoint)).value(item.expose); // TODO: map expose to property
+            QString itemName = item.expose.split('_').value(0), topic = QString("hasp/%1/command/p%2b%3").arg(display->id()).arg(item.page).arg(item.id);
+            QVariant value = device->properties().value(getEndpointId(item.endpoint)).value(itemName == "light" || itemName == "switch" ? "status" : item.expose); // TODO: map expose to property
 
             switch (value.type())
             {
                 case QVariant::Bool:
                 {
-                    QString itemName = item.expose.split('_').value(0);
                     bool check = itemName == "contact" ? !value.toBool() : value.toBool();
 
                     if (itemName == "contact")
@@ -77,6 +76,12 @@ void Controller::publishData(DisplayObject *display, const QString &filter)
                 case QVariant::Double:
                 {
                     mqttPublishString(QString("%1.text").arg(topic), value.toString());
+                    break;
+                }
+
+                case QVariant::String:
+                {
+                    mqttPublishString(QString("%1.val").arg(topic), value.toString() == "on" ? "1" : "0");
                     break;
                 }
 
@@ -94,20 +99,21 @@ void Controller::publishEvent(const QString &name, Event event)
 
 void Controller::displayEvent(DisplayObject *display, Event event)
 {
-    QString topic = QString("hasp/%1/LWT").arg(display->id());
+    QString topic = QString("hasp/%1").arg(display->id());
 
     switch (event)
     {
         case Event::aboutToRename:
         case Event::removed:
             mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), QJsonObject(), true);
-            mqttUnsubscribe(topic);
+            mqttUnsubscribe(QString("%1/LWT").arg(topic));
+            mqttUnsubscribe(QString("%1/state/#").arg(topic));
             break;
 
         case Event::added:
         case Event::updated:
-            QTimer::singleShot(SUBSCRIPTION_DELAY, this, [this, topic] () { mqttSubscribe(topic); });
-            mqttUnsubscribe(topic);
+            QTimer::singleShot(SUBSCRIPTION_DELAY, this, [this, topic] () { mqttSubscribe(QString("%1/LWT").arg(topic)); mqttSubscribe(QString("%1/state/#").arg(topic)); });
+            mqttUnsubscribe(QString("%1/LWT").arg(topic));
             break;
 
         default:
@@ -135,7 +141,10 @@ void Controller::mqttConnected(void)
     mqttSubscribe(mqttTopic("service/#"));
 
     for (int i = 0; i < m_displays->count(); i++)
+    {
         mqttSubscribe(QString("hasp/%1/LWT").arg(m_displays->at(i)->id()));
+        mqttSubscribe(QString("hasp/%1/state/#").arg(m_displays->at(i)->id()));
+    }
 
     m_devices.clear();
     m_displays->store();
@@ -356,5 +365,36 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         publishLayout(display.data());
         publishData(display.data());
+    }
+    else if (topic.name().startsWith("hasp/") && topic.name().split('/').value(2) == "state")
+    {
+        QRegExp expression("p(\\d+)b(\\d+)");
+        QList <QString> list = topic.name().split('/');
+        const Display &display = m_displays->byName(list.value(1));
+
+        if (display.isNull() || display->availability() != Availability::Online || !expression.exactMatch(list.value(3)) || json.value("event").toString() != "up")
+            return;
+
+        for (int i = 0; i < display->items().count(); i++)
+        {
+            const DisplayItem &item = display->items().at(i);
+
+            if (item.page == expression.cap(1).toInt() && item.id == expression.cap(2).toInt())
+            {
+                QString itemName = item.expose.split('_').value(0);
+                const Device &device = findDevice(item.endpoint);
+
+                if (device.isNull() || !device->available())
+                    break;
+
+                if (itemName == "light" || itemName == "switch")
+                {
+                    quint8 endpointId = getEndpointId(item.endpoint);
+                    mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{"status", json.value("val").toInt() ? "on" : "off"}});
+                }
+
+                break;
+            }
+        }
     }
 }
