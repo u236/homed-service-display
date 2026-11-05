@@ -46,7 +46,7 @@ QList <QString> DisplayObject::layout(void)
         for (int j = 0; j < items.count() && j < rows * columns; j++)
         {
             QJsonObject item = items.at(j).toObject();
-            QString endpoint = item.value("endpoint").toString(), expose = item.value("scene").toString().isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = units.value(expose), name = item.value("name").toString(), text = unit.isEmpty() ? icons.value(expose, expose) : "--";
+            QString endpoint = item.value("endpoint").toString(), scene = item.value("scene").toString(), expose = scene.isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = units.value(expose), name = item.value("name").toString(), text = unit.isEmpty() ? icons.value(expose, expose) : "--";
             bool large = rows * columns == 1 && !unit.isEmpty() && expose != "thermostat";
             int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = units.contains(expose) ? size / 3 : icons.contains(expose) ? size / 2 : 24;
 
@@ -58,14 +58,14 @@ QList <QString> DisplayObject::layout(void)
             if (expose == "thermostat")
                 add(list, "label", i + 1, id + 2, x, y + size * 2 / 3 - 2, size, size / 4, {{"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", size / 5}, {"text_color", HEADER_COLOR}});
 
-            if (!endpoint.isEmpty())
-                m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), endpoint, item.value("expose").toString(), item.value("name").toString()});
+            if (name.isEmpty())
+                name = QString("Item %1").arg(j + 1);
+
+            if (!endpoint.isEmpty() || !scene.isEmpty())
+                m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), name, endpoint, item.value("expose").toString(), scene});
 
             if (!unit.isEmpty())
-                name = name.isEmpty() ? unit : QString("%1, %2").arg(name, unit);
-
-            if (name.isEmpty()) // TODO: add name fallback
-                continue;
+                name = QString("%1, %2").arg(name, unit);
 
             add(list, "label", i + 1, id + 1, x - gap / 2, y + height + labelGap, size + gap, labelFont * 5 / 4, {{"align", "center"}, {"text", name}, {"text_font", labelFont}, {"text_color", HEADER_COLOR}});
         }
@@ -80,7 +80,11 @@ QList <QString> DisplayObject::layout(void)
     add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
     return list;
 }
+//
 
+
+
+// NOT REVIEWED
 QList <QString> DisplayObject::window(const QString &name, const QJsonObject &options)
 {
     QList <QString> list;

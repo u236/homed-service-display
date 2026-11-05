@@ -86,7 +86,7 @@ private:
     QMetaEnum m_commands, m_events;
 
     QMap <QString, Device> m_devices;
-    QList <QString> m_updates;
+    QList <QString> m_automations, m_updates;
 
     Device findDevice(const QString &search);
     quint8 getEndpointId(const QString &endpoint);

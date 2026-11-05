@@ -72,10 +72,10 @@ void Controller::sendAvailability(DisplayObject *display, const QString &filter)
     for (int i = 0; i < display->items().count(); i++)
     {
         const DisplayItem &item = display->items().at(i);
-        const Device &device = findDevice(item.endpoint);
 
-        if (filter.isEmpty() || filter == item.endpoint || item.endpoint.startsWith(QString("%1/").arg(filter)))
+        if (item.scene.isEmpty() && (filter.isEmpty() || filter == item.endpoint || item.endpoint.startsWith(QString("%1/").arg(filter))))
         {
+            const Device &device = findDevice(item.endpoint);
             bool check = !device.isNull() && device->available();
             addCommand(list, item.page, item.id, {{"enabled", check}, {"text_color", check ? TEXT_COLOR : DISABLED_COLOR}});
             addCommand(list, item.page, item.id + 1, {{"text_color", check ? HEADER_COLOR : DISABLED_COLOR}});
@@ -275,6 +275,7 @@ void Controller::mqttConnected(void)
     }
 
     m_devices.clear();
+    m_automations.clear();
     m_displays->store();
 
     mqttPublishService();
@@ -435,7 +436,10 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             {
                 const DisplayItem &item = display->items().at(i);
 
-                if (item.page == page && item.id == id)
+                if (item.page != page || item.id != id)
+                    continue;
+
+                if (item.scene.isEmpty())
                 {
                     QString itemName = item.expose.split('_').value(0);
                     quint8 endpointId = getEndpointId(item.endpoint);
@@ -479,6 +483,11 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                     break;
                 }
+
+                for (int j = 0; j < m_automations.count(); j++)
+                    mqttPublish(mqttTopic("command/%1").arg(m_automations.at(j)), {{"action", "callScene"}, {"scene", item.scene}});
+
+                break;
             }
         }
 
@@ -569,6 +578,16 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
     else if (subTopic.startsWith("service/"))
     {
         QString type = subTopic.split('/').value(1), service = subTopic.mid(subTopic.indexOf('/') + 1);
+
+        if (type == "automation")
+        {
+            m_automations.removeAll(service);
+
+            if (json.value("status").toString() == "online")
+                m_automations.append(service);
+
+            return;
+        }
 
         if (coreServices().contains(type) || service == serviceTopic())
             return;
