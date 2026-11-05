@@ -6,9 +6,9 @@
 
 
 // NOT REVIEWED
-QList <QByteArray> DisplayObject::layout(void)
+QList <QString> DisplayObject::layout(void)
 {
-    QList <QByteArray> list;
+    QList <QString> list;
     QList <int> sizes = {150, 115, 80};
     QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
     int count = qMin(m_pages.count(), MAX_PAGES);
@@ -81,9 +81,9 @@ QList <QByteArray> DisplayObject::layout(void)
     return list;
 }
 
-QList <QByteArray> DisplayObject::window(const QString &name, const QJsonObject &options)
+QList <QString> DisplayObject::window(const QString &name, const QJsonObject &options)
 {
-    QList <QByteArray> list;
+    QList <QString> list;
     int sliders = 0, rows = 0, color = -1, top, row, y;
 
     for (int i = 0; i < m_properties.count(); i++)
@@ -196,7 +196,7 @@ QList <QByteArray> DisplayObject::window(const QString &name, const QJsonObject 
 
 
 
-void DisplayObject::add(QList <QByteArray> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data)
+void DisplayObject::add(QList <QString> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data)
 {
     QJsonObject json = {{"obj", type}, {"page", page}, {"id", id}, {"x", x}, {"y", y}, {"w", width}, {"h", height}};
 

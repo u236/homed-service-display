@@ -60,8 +60,8 @@ public:
     inline QList <QString> &properties(void) { return m_properties; }
     inline QList <DisplayItem> &items(void) { return m_items; }
 
-    QList <QByteArray> layout(void);
-    QList <QByteArray> window(const QString &name, const QJsonObject &options);
+    QList <QString> layout(void);
+    QList <QString> window(const QString &name, const QJsonObject &options);
 
 private:
 
@@ -73,7 +73,7 @@ private:
     QList <QString> m_properties;
     QList <DisplayItem> m_items;
 
-    void add(QList <QByteArray> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data = QJsonObject());
+    void add(QList <QString> &list, const QString &type, quint16 page, quint16 id, quint16 x, quint16 y, quint16 width, quint16 height, const QJsonObject &data = QJsonObject());
 
 };
 

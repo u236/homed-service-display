@@ -85,13 +85,16 @@ private:
     Device findDevice(const QString &search);
     quint8 getEndpointId(const QString &endpoint);
 
-    void publishLayout(DisplayObject *display, const QList <QByteArray> &list);
-    void publishAvailability(DisplayObject *display, const QString &filter = QString());
-    void publishData(DisplayObject *display, const QString &filter = QString());
+    void publishCommands(DisplayObject *display, const QList <QString> &list);
     void publishEvent(const QString &name, Event event);
 
-    void updateAvailability(const Device &device);
+    void addCommand(QList <QString> &list, quint16 page, quint16 id, const QJsonObject &data);
+
+    void sendAvailability(DisplayObject *display, const QString &filter = QString());
+    void sendData(DisplayObject *display, const QString &filter = QString());
+
     void displayEvent(DisplayObject *display, Event event);
+    void updateAvailability(const Device &device);
 
 public slots:
 
