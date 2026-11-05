@@ -103,7 +103,7 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
     y = qMax(66, (m_height - sliders * 50 - (sliders > 1 ? 15 : 0) - (color < 0 ? 0 : 210 + (sliders ? 45 : 0)) + 1) / 2);
 
     add(list, "btn", 0, WINDOW_ID + 1, m_width - 60, 2, 56, 56, {{"parentid", WINDOW_ID}, {"action", QJsonObject {{"up", QJsonArray {QString("p0b%1.hidden 1").arg(WINDOW_ID), QString("p0b%1.hidden").arg(WINDOW_ID)}}}}, {"radius", 28}, {"border_width", 0}, {"bg_opa", 0}, {"text", QString(QChar(0xE156))}, {"text_font", 32}, {"text_color", HEADER_COLOR}});
-    add(list, "label", 0, WINDOW_ID + 2, 40, 16, m_width - 100, 30, {{"parentid", WINDOW_ID}, {"align", "left"}, {"text", name}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+    add(list, "label", 0, WINDOW_ID + 2, 20, 16, m_width - 80, 30, {{"parentid", WINDOW_ID}, {"align", "left"}, {"text", name}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
 
     for (int i = 0; i < m_properties.count(); i++)
     {
@@ -166,12 +166,12 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
         {
             QJsonValue value = options.value(property).toObject().value("enum");
             QList <QVariant> items = value.isArray() ? value.toArray().toVariantList() : value.toObject().toVariantMap().values();
-            int width = items.isEmpty() ? 0 : (m_width - 80 - (items.count() - 1) * 8) / items.count();
+            int width = items.isEmpty() ? 0 : (m_width - 40 - (items.count() - 1) * 8) / items.count();
 
-            add(list, "label", 0, WINDOW_ID + 4 + i * 2, 40, row - 30, m_width - 80, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "systemMode" ? "System mode" : "Operation mode"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
+            add(list, "label", 0, WINDOW_ID + 4 + i * 2, 20, row - 30, m_width - 40, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "systemMode" ? "System mode" : "Operation mode"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
 
             for (int j = 0; j < items.count(); j++)
-                add(list, "btn", 0, WINDOW_ID + 20 + i * 10 + j, 40 + j * (width + 8), row, width, 36, {{"parentid", WINDOW_ID}, {"radius", 18}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", items.at(j).toString()}, {"text_font", 20}, {"text_color", TEXT_COLOR}});
+                add(list, "btn", 0, WINDOW_ID + 20 + i * 10 + j, 20 + j * (width + 8), row, width, 36, {{"parentid", WINDOW_ID}, {"radius", 18}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", items.at(j).toString()}, {"text_font", 20}, {"text_color", TEXT_COLOR}});
 
             row += 81;
             continue;
@@ -181,8 +181,8 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
 
         data.insert("anim_time", 0);
 
-        add(list, "slider", 0, WINDOW_ID + 3 + i * 2, 40, y + 30, m_width - 80, 20, data);
-        add(list, "label", 0, WINDOW_ID + 4 + i * 2, 40, y, m_width - 80, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "level" ? "Level" : "Color temperature"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
+        add(list, "slider", 0, WINDOW_ID + 3 + i * 2, 20, y + 30, m_width - 40, 20, data);
+        add(list, "label", 0, WINDOW_ID + 4 + i * 2, 20, y, m_width - 40, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "level" ? "Level" : "Color temperature"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});
 
         y += 65;
     }

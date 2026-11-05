@@ -34,6 +34,8 @@ public:
 
     inline QMap <quint8, QMap <QString, QVariant>> &properties(void) { return m_properties; }
 
+    QJsonObject options(quint8 endpointId, const QString &name = QString());
+
 private:
 
     QString m_key, m_topic;
