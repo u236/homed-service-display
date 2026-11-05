@@ -114,6 +114,7 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
         {
             data.insert("min", 0);
             data.insert("max", 255);
+            data.insert("bg_color00", BUTTON_COLOR);
             data.insert("bg_color10", ACCENT_COLOR);
         }
         else if (itemName == "colorTemperature")
@@ -152,6 +153,7 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
             data.insert("bg_opa", 0);
             data.insert("line_width", 22);
             data.insert("line_width10", 22);
+            data.insert("line_color", BUTTON_COLOR);
             data.insert("line_color10", ACCENT_COLOR);
             data.insert("pad_top20", 3);
             data.insert("pad_bottom20", 3);
@@ -160,6 +162,8 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
 
             add(list, "arc", 0, WINDOW_ID + 3 + i * 2, (m_width - 210) / 2, top, 210, 210, data);
             add(list, "label", 0, WINDOW_ID + 4 + i * 2, (m_width - 210) / 2, top + 70, 210, 56, {{"parentid", WINDOW_ID}, {"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", 48}, {"text_color", TEXT_COLOR}});
+            add(list, "btn", 0, WINDOW_ID + 20 + i * 10, (m_width - 210) / 2 - 92, top + 75, 60, 60, {{"parentid", WINDOW_ID}, {"radius", 30}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", QString(QChar(0xE374))}, {"text_font", 32}, {"text_color", TEXT_COLOR}});
+            add(list, "btn", 0, WINDOW_ID + 21 + i * 10, (m_width + 210) / 2 + 32, top + 75, 60, 60, {{"parentid", WINDOW_ID}, {"radius", 30}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", QString(QChar(0xE415))}, {"text_font", 32}, {"text_color", TEXT_COLOR}});
             continue;
         }
         else if (itemName == "systemMode" || itemName == "operationMode")

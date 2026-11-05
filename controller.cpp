@@ -98,7 +98,7 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
             QString property = display->properties().at(i), itemName = property.split('_').value(0);
             int id = WINDOW_ID + 3 + i * 2;
 
-            if (!properties.contains(property))
+            if (id == display->control() || !properties.contains(property))
                 continue;
 
             switch (propertyList.indexOf(itemName))
@@ -126,7 +126,7 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
                 case 4: // targetTemperature
                 {
                     addCommand(list, 0, id, {{"val", qRound(properties.value(property).toDouble() / device->options(endpointId, property).value("step").toDouble(1))}});
-                    addCommand(list, 0, id + 1, {{"text", properties.value(property).toString()}});
+                    addCommand(list, 0, id + 1, {{"text", properties.value(property).toString()}, {"text_color", properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR}});
                     break;
                 }
 
@@ -357,38 +357,48 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 if (device.isNull())
                     return;
 
-                if (event == "changed" && display->properties().value((id - WINDOW_ID - 3) / 2) == "targetTemperature")
+                if (event == "down")
                 {
-                    mqttPublishString(QString("hasp/%1/command/p0b%2.text").arg(display->id()).arg(id + 1), QString::number(json.value("val").toInt() * device->options(endpointId, "targetTemperature").value("step").toDouble(1)));
+                    display->setControl(id);
                     return;
                 }
 
                 if (event == "up")
                 {
-                    QList <QString> propertyList = {"level", "colorTemperature", "color", "targetTemperature"};
+                    QList <QString> list = {"level", "colorTemperature", "color", "targetTemperature"};
                     QString property = display->properties().value(id < WINDOW_ID + 20 ? (id - WINDOW_ID - 3) / 2 : (id - WINDOW_ID - 20) / 10), itemName = property.split('_').value(0);
                     QJsonValue value;
+
+                    display->setControl(0);
 
                     if (property.isEmpty() || (id < WINDOW_ID + 20 && (id - WINDOW_ID - 3) % 2))
                         return;
 
-                    switch (propertyList.indexOf(itemName))
+                    switch (list.indexOf(itemName))
                     {
                         case 0: // level
                         case 1: // colorTemperature
+                        {
                             value = json.value("val");
                             break;
+                        }
 
                         case 2: // color
+                        {
                             value = QJsonArray {json.value("r"), json.value("g"), json.value("b")};
                             break;
+                        }
 
                         case 3: // targetTemperature
-                            value = json.value("val").toInt() * device->options(endpointId, property).value("step").toDouble(1);
+                        {
+                            QJsonObject options = device->options(endpointId, property);
+                            double step = options.value("step").toDouble(1);
+                            value = id < WINDOW_ID + 20 ? json.value("val").toInt() * step : qMin(qMax(device->properties().value(endpointId).value(property).toDouble() + ((id - WINDOW_ID - 20) % 10 ? step : step * -1), options.value("min").toDouble()), options.value("max").toDouble());
                             break;
+                        }
 
                         default:
-
+                        {
                             if (id >= WINDOW_ID + 20)
                             {
                                 QJsonValue items = device->options(endpointId, property).value("enum");
@@ -396,12 +406,21 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                             }
 
                             break;
+                        }
                     }
 
                     if (value.isNull())
                         return;
 
                     mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{property, value}});
+                    return;
+                }
+
+                if (event == "changed" && display->properties().value((id - WINDOW_ID - 3) / 2) == "targetTemperature")
+                {
+                    QList <QString> list;
+                    addCommand(list, 0, id + 1, {{"text", QString::number(json.value("val").toInt() * device->options(endpointId, "targetTemperature").value("step").toDouble(1))}, {"text_color", HEADER_COLOR}});
+                    publishCommands(display.data(), list);
                 }
 
                 return;
@@ -435,6 +454,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                         QJsonArray controls = itemName == "light" ? options.value(item.expose).toArray() : QJsonArray {"temperature", "targetTemperature", "systemMode", "operationMode"};
 
                         display->setEndpoint(item.endpoint);
+                        display->setControl(0);
                         display->properties().clear();
 
                         for (auto it = controls.begin(); it != controls.end(); it++)

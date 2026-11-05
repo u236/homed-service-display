@@ -43,7 +43,7 @@ class DisplayObject : public AbstractDeviceObject
 public:
 
     DisplayObject(const QString &id, quint16 width, quint16 height, quint16 home, const QString &name, const QJsonArray &pages) :
-        AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_width(width), m_height(height), m_home(home), m_pages(pages) {}
+        AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_width(width), m_height(height), m_home(home), m_control(0), m_pages(pages) {}
 
     inline QString id(void) { return m_id; }
 
@@ -53,6 +53,9 @@ public:
     inline quint16 width(void) { return m_width; }
     inline quint16 height(void) { return m_height; }
     inline quint16 home(void) { return m_home; }
+
+    inline quint16 control(void) { return m_control; }
+    inline void setControl(quint16 value) { m_control = value; }
 
     inline QJsonArray pages(void) { return m_pages; }
 
@@ -65,7 +68,7 @@ public:
 private:
 
     QString m_id, m_endpoint;
-    quint16 m_width, m_height, m_home;
+    quint16 m_width, m_height, m_home, m_control;
 
     QJsonArray m_pages;
 
