@@ -165,7 +165,7 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
                 case 0: // switch
                 case 1: // light
                 {
-                    addCommand(list, item.page, item.id, {{"bg_color", properties.value(QString(item.expose).replace(itemName, "status")).toString() == "on" ? ACCENT_COLOR : BUTTON_COLOR}});
+                    addCommand(list, item.page, item.id, {{"val", properties.value(QString(item.expose).replace(itemName, "status")).toString() == "on" ? 1 : 0}});
                     break;
                 }
 
@@ -228,6 +228,39 @@ void Controller::displayEvent(DisplayObject *display, Event event)
     }
 
     publishEvent(display->name(), event);
+}
+
+void Controller::showWindow(DisplayObject *display, const DisplayItem &item)
+{
+    QString itemName = item.expose.split('_').value(0);
+    const Device &device = findDevice(item.endpoint);
+
+    if (!device.isNull() && device->available())
+    {
+        QJsonObject options = device->options(getEndpointId(item.endpoint));
+        QJsonArray controls = itemName == "light" ? options.value(item.expose).toArray() : QJsonArray {"temperature", "targetTemperature", "systemMode", "operationMode"};
+
+        display->setEndpoint(item.endpoint);
+        display->setControl(0);
+        display->properties().clear();
+
+        for (auto it = controls.begin(); it != controls.end(); it++)
+        {
+            QString property = QString(item.expose).replace(itemName, it->toString());
+
+            if (property.startsWith("colorMode") || (itemName == "thermostat" && property != "temperature" && !options.contains(property)))
+                continue;
+
+            display->properties().append(property);
+        }
+
+        mqttPublishString(QString("hasp/%1/command/p0b%2.clear").arg(display->id()).arg(WINDOW_ID), QString());
+
+        publishCommands(display, display->window(item.name, options));
+        sendData(display, item.endpoint);
+
+        mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "0");
+    }
 }
 
 void Controller::updateAvailability(const Device &device)
@@ -429,9 +462,6 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 return;
             }
 
-            if (event != "up" && event != "long")
-                return;
-
             for (int i = 0; i < display->items().count(); i++)
             {
                 const DisplayItem &item = display->items().at(i);
@@ -448,44 +478,45 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                     if (device.isNull() || !device->available())
                         break;
 
-                    if (event == "up" && (itemName == "switch" || itemName == "light"))
+                    if (event == "down" && itemName == "light")
                     {
-                        mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{QString(item.expose).replace(itemName, "status"), "toggle"}});
+                        qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+                        QTimer::singleShot(LONG_PRESS_DELAY, this, [this, display, item, now] ()
+                        {
+                            if (display->time() != now)
+                                return;
+
+                            showWindow(display.data(), item);
+                            display->setTime(0);
+                        });
+
+                        display->setTime(now);
                         break;
                     }
 
-                    if (event == "long" && (itemName == "light" || itemName == "thermostat"))
+                    if (event == "up" && (itemName == "switch" || itemName == "light"))
                     {
-                        QJsonObject options = device->options(endpointId);
-                        QJsonArray controls = itemName == "light" ? options.value(item.expose).toArray() : QJsonArray {"temperature", "targetTemperature", "systemMode", "operationMode"};
-
-                        display->setEndpoint(item.endpoint);
-                        display->setControl(0);
-                        display->properties().clear();
-
-                        for (auto it = controls.begin(); it != controls.end(); it++)
+                        if (itemName == "switch" || display->time())
                         {
-                            QString property = QString(item.expose).replace(itemName, it->toString());
-
-                            if (property.startsWith("colorMode") || (itemName == "thermostat" && property != "temperature" && !options.contains(property)))
-                                continue;
-
-                            display->properties().append(property);
+                            mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{QString(item.expose).replace(itemName, "status"), json.value("val").toInt() ? "on" : "off"}});
+                            display->setTime(0);
                         }
+                        else
+                            sendData(display.data(), item.endpoint);
 
-                        mqttPublishString(QString("hasp/%1/command/p0b%2.clear").arg(display->id()).arg(WINDOW_ID), QString());
-
-                        publishCommands(display.data(), display->window(item.name, options));
-                        sendData(display.data(), item.endpoint);
-
-                        mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "0");
+                        break;
                     }
+
+                    if (event == "long" && itemName == "thermostat")
+                        showWindow(display.data(), item);
 
                     break;
                 }
 
-                for (int j = 0; j < m_automations.count(); j++)
-                    mqttPublish(mqttTopic("command/%1").arg(m_automations.at(j)), {{"action", "callScene"}, {"scene", item.scene}});
+                if (event == "up")
+                    for (int j = 0; j < m_automations.count(); j++)
+                        mqttPublish(mqttTopic("command/%1").arg(m_automations.at(j)), {{"action", "callScene"}, {"scene", item.scene}});
 
                 break;
             }

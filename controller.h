@@ -4,6 +4,7 @@
 #define SERVICE_VERSION     "1.0.0"
 #define CHUNK_SIZE          1920
 #define SUBSCRIPTION_DELAY  1000
+#define LONG_PRESS_DELAY    400
 #define UPDATE_DELAY        100
 
 #include <QMetaEnum>
@@ -100,6 +101,7 @@ private:
     void sendData(DisplayObject *display, const QString &filter = QString());
 
     void displayEvent(DisplayObject *display, Event event);
+    void showWindow(DisplayObject *display, const DisplayItem &item);
     void updateAvailability(const Device &device);
 
 public slots:

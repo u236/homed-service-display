@@ -53,7 +53,7 @@ QList <QString> DisplayObject::layout(void)
             if (large)
                 add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
             else
-                add(list, "btn", i + 1, id, x, y, size, size, {{"radius", size / 2}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"bg_color04", BUTTON_COLOR}, {"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}});
+                add(list, "btn", i + 1, id, x, y, size, size, {{"toggle", expose == "switch" || expose == "light"}, {"radius", size / 2}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"bg_color01", ACCENT_COLOR}, {"bg_color03", ACCENT_COLOR}, {"bg_color04", BUTTON_COLOR}, {"bg_color05", BUTTON_COLOR}, {"align", "center"}, {"text", text}, {"text_font", font}, {"text_color", TEXT_COLOR}});
 
             if (expose == "thermostat")
                 add(list, "label", i + 1, id + 2, x, y + size * 2 / 3 - 2, size, size / 4, {{"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", size / 5}, {"text_color", HEADER_COLOR}});

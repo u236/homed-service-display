@@ -13,15 +13,15 @@
 #define CLOCK_HEIGHT                120
 #define CELL_PADDING                10
 #define ROW_GAP                     12
-#define WINDOW_ID                   10
+#define WINDOW_ID                   10 // TODO: refactor magic numbers
 
 #define BACKGROUND_COLOR            "#000000"
 #define HEADER_COLOR                "#888888"
 #define BUTTON_COLOR                "#616161"
 #define DISABLED_COLOR              "#555555"
-#define ACCENT_COLOR                "#f6aa39"
-#define TEXT_COLOR                  "#ffffff"
-#define ALARM_COLOR                 "#f44336"
+#define ACCENT_COLOR                "#F6AA39"
+#define TEXT_COLOR                  "#FFFFFF"
+#define ALARM_COLOR                 "#F44336"
 //
 
 
@@ -43,7 +43,7 @@ class DisplayObject : public AbstractDeviceObject
 public:
 
     DisplayObject(const QString &id, quint16 width, quint16 height, quint16 home, const QString &name, const QJsonArray &pages) :
-        AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_width(width), m_height(height), m_home(home), m_control(0), m_pages(pages) {}
+        AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_width(width), m_height(height), m_home(home), m_control(0), m_time(0), m_pages(pages) {}
 
     inline QString id(void) { return m_id; }
 
@@ -57,6 +57,9 @@ public:
     inline quint16 control(void) { return m_control; }
     inline void setControl(quint16 value) { m_control = value; }
 
+    inline qint64 time(void) { return m_time; }
+    inline void setTime(qint64 value) { m_time = value; }
+
     inline QJsonArray pages(void) { return m_pages; }
 
     inline QList <QString> &properties(void) { return m_properties; }
@@ -68,7 +71,9 @@ public:
 private:
 
     QString m_id, m_endpoint;
+
     quint16 m_width, m_height, m_home, m_control;
+    qint64 m_time;
 
     QJsonArray m_pages;
 
