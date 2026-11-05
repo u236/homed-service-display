@@ -303,7 +303,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 mqttPublishString(QString("%1/clearpage").arg(topic), "all");
                 publishCommands(display.data(), display->layout());
-                mqttPublishString(QString("%1/page").arg(topic), QString::number(display->home()));
+                mqttPublishString(QString("%1/page").arg(topic), display->home() ? QString::number(display->home()) : QString());
 
                 sendAvailability(display.data());
                 sendData(display.data());
@@ -316,8 +316,25 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             QString event = json.value("event").toString();
             const Display &display = m_displays->byName(list.value(1));
 
-            if (display.isNull() || display->availability() != Availability::Online || !expression.exactMatch(list.value(3)))
+            if (display.isNull() || display->availability() != Availability::Online)
                 return;
+
+            if (list.value(3) == "page" && message.toInt() > qMax(qMin(display->pages().count(), MAX_PAGES), 1))
+            {
+                mqttPublishString(QString("hasp/%1/command/page").arg(display->id()), "1");
+                return;
+            }
+
+            if (list.value(3) == "idle" && message == "short")
+            {
+                if (display->home())
+                    mqttPublishString(QString("hasp/%1/command/page").arg(display->id()), QString::number(display->home()));
+
+                mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "1");
+                display->setEndpoint(QString());
+                display->properties().clear();
+                return;
+            }
 
             if (list.value(3) == QString("p0b%1").arg(WINDOW_ID) && json.value("hidden").toBool())
             {
@@ -325,6 +342,9 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 display->properties().clear();
                 return;
             }
+
+            if (!expression.exactMatch(list.value(3)))
+                return;
 
             page = expression.cap(1).toInt();
             id = expression.cap(2).toInt();

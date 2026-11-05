@@ -278,7 +278,7 @@ Display DisplayList::parse(const QJsonObject &json)
     if (id.isEmpty() || !width || !height)
         return display;
 
-    display = Display(new DisplayObject(id, width, height, static_cast <quint16> (json.value("home").toInt(1)), static_cast <quint16> (json.value("timeout").toInt()), mqttSafe(json.value("name").toString()), pages)); // TODO: check home page range
+    display = Display(new DisplayObject(id, width, height, static_cast <quint16> (json.value("home").toInt()), mqttSafe(json.value("name").toString()), pages));
 
     if (json.contains("active"))
         display->setActive(json.value("active").toBool());
@@ -317,13 +317,13 @@ QJsonArray DisplayList::serialize(void)
     for (int i = 0; i < count(); i++)
     {
         const Display &display = at(i);
-        QJsonObject json = {{"id", display->id()}, {"width", display->width()}, {"height", display->height()}, {"home", display->home()}, {"active", display->active()}};
+        QJsonObject json = {{"id", display->id()}, {"width", display->width()}, {"height", display->height()}, {"active", display->active()}};
 
         if (display->name() != display->id())
             json.insert("name", display->name());
 
-        if (display->timeout())
-            json.insert("timeout", display->timeout());
+        if (display->home())
+            json.insert("home", display->home());
 
         if (!display->pages().isEmpty())
             json.insert("pages", display->pages());
