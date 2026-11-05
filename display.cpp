@@ -184,6 +184,7 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
             continue;
 
         data.insert("anim_time", 0);
+        data.insert("ext_click_h", 20);
 
         add(list, "slider", 0, WINDOW_ID + 3 + i * 2, 20, y + 30, m_width - 40, 20, data);
         add(list, "label", 0, WINDOW_ID + 4 + i * 2, 20, y, m_width - 40, 24, {{"parentid", WINDOW_ID}, {"text", itemName == "level" ? "Level" : "Color temperature"}, {"text_font", 20}, {"text_color", HEADER_COLOR}});

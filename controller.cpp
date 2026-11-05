@@ -8,8 +8,10 @@ QJsonObject DeviceObject::options(quint8 endpointId, const QString &name)
     return name.isEmpty() ? options : options.value(name).toObject();
 }
 
-Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
+Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_timer(new QTimer(this)), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
+    connect(m_timer, &QTimer::timeout, this, &Controller::update);
+    m_timer->setSingleShot(true);
     m_displays->init();
 }
 
@@ -687,14 +689,28 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         device->properties().insert(getEndpointId(string.replace(device->topic(), device->key())), json.toVariantMap());
 
-        for (int i = 0; i < m_displays->count(); i++)
-        {
-            const Display &display = m_displays->at(i);
+        if (!m_updates.contains(string))
+            m_updates.append(string);
 
-            if (display->availability() != Availability::Online)
-                continue;
+        if (m_timer->isActive())
+            return;
 
-            sendData(display.data(), string);
-        }
+        m_timer->start(UPDATE_DELAY);
     }
+}
+
+void Controller::update(void)
+{
+    for (int i = 0; i < m_displays->count(); i++)
+    {
+        const Display &display = m_displays->at(i);
+
+        if (display->availability() != Availability::Online)
+            continue;
+
+        for (int j = 0; j < m_updates.count(); j++)
+            sendData(display.data(), m_updates.at(j));
+    }
+
+    m_updates.clear();
 }

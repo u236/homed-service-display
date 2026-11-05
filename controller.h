@@ -4,6 +4,7 @@
 #define SERVICE_VERSION     "1.0.0"
 #define CHUNK_SIZE          1920
 #define SUBSCRIPTION_DELAY  1000
+#define UPDATE_DELAY        100
 
 #include <QMetaEnum>
 #include "display.h"
@@ -79,10 +80,13 @@ public:
 
 private:
 
+    QTimer *m_timer;
+
     DisplayList *m_displays;
     QMetaEnum m_commands, m_events;
 
     QMap <QString, Device> m_devices;
+    QList <QString> m_updates;
 
     Device findDevice(const QString &search);
     quint8 getEndpointId(const QString &endpoint);
@@ -106,6 +110,8 @@ private slots:
 
     void mqttConnected(void) override;
     void mqttReceived(const QByteArray &message, const QMqttTopicName &topic) override;
+
+    void update(void);
 
 };
 
