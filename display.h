@@ -1,11 +1,11 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-
+#define DEFAULT_ENDPOINT            0
+#define STORE_DATABASE_DELAY        20
 
 // NOT REVIEWED
 #define MAX_PAGES                   4
-#define STORE_DATABASE_DELAY        20
 
 #define HEADER_HEIGHT               60
 #define NAVIGATION_HEIGHT           40
@@ -34,6 +34,21 @@ struct DisplayItem
 {
     quint16 page, id;
     QString name, endpoint, expose, scene;
+};
+
+class EndpointObject : public AbstractEndpointObject
+{
+
+public:
+
+    EndpointObject(quint8 id, const Device &device) : AbstractEndpointObject(id, device) {}
+
+    inline QMap <QString, QVariant> &properties(void) { return m_properties; }
+
+private:
+
+    QMap <QString, QVariant> m_properties;
+
 };
 
 class DisplayObject;

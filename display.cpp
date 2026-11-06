@@ -1,6 +1,7 @@
 #include "color.h"
 #include "controller.h"
 #include "display.h"
+#include "expose.h"
 #include "logger.h"
 
 
@@ -80,7 +81,7 @@ QList <QString> DisplayObject::layout(void)
     add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
     add(list, "obj", 0, WATCHDOG_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}, {"watchdog", WATCHDOG_TIMEOUT}});
     add(list, "label", 0, WATCHDOG_ID + 1, 0, m_height / 2 - 56, m_width, 112, {{"parentid", WATCHDOG_ID}, {"click", false}, {"align", "center"}, {"text", QString(QChar(0xE026))}, {"text_font", 96}, {"text_color", ACCENT_COLOR}});
-    add(list, "label", 0, WATCHDOG_ID + 2, 0, m_height / 2 + 105, m_width, 30, {{"parentid", WATCHDOG_ID}, {"click", false}, {"align", "center"}, {"text", "Service unavailable"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+    add(list, "label", 0, WATCHDOG_ID + 2, 0, m_height / 2 + 105, m_width, 30, {{"parentid", WATCHDOG_ID}, {"click", false}, {"align", "center"}, {"text", "Display offline"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
     return list;
 }
 //
@@ -287,13 +288,35 @@ Display DisplayList::parse(const QJsonObject &json)
         return display;
     }
 
-    if (id.isEmpty() || !width || !height)
-        return display;
+    if (!id.isEmpty() && width && height)
+    {
+        Expose light(new LightObject), idle(new SensorObject("idle")), antiburn(new ToggleObject("antiburn"));
+        Endpoint endpoint;
 
-    display = Display(new DisplayObject(id, width, height, static_cast <quint16> (json.value("home").toInt()), mqttSafe(json.value("name").toString()), pages));
+        display = Display(new DisplayObject(id, width, height, static_cast <quint16> (json.value("home").toInt()), mqttSafe(json.value("name").toString()), pages));
+        endpoint = Endpoint(new EndpointObject(DEFAULT_ENDPOINT, reinterpret_cast <const Device &> (display)));
 
-    if (json.contains("active"))
-        display->setActive(json.value("active").toBool());
+        if (json.contains("active"))
+            display->setActive(json.value("active").toBool());
+
+        if (!display->active())
+            display->setAvailability(Availability::Offline);
+
+        light->setParent(endpoint.data());
+        endpoint->exposes().append(light);
+
+        idle->setParent(endpoint.data());
+        endpoint->exposes().append(idle);
+
+        antiburn->setParent(endpoint.data());
+        endpoint->exposes().append(antiburn);
+
+        display->endpoints().insert(endpoint->id(), endpoint);
+
+        display->options().insert("light",    QList <QVariant> {"level"});
+        display->options().insert("idle",     QMap <QString, QVariant> {{"type", "sensor"}, {"icon", "mdi:timer-sand"}});
+        display->options().insert("antiburn", QMap <QString, QVariant> {{"type", "toggle"}, {"icon", "mdi:shimmer"}});
+    }
 
     return display;
 }

@@ -1,12 +1,13 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION     "1.0.0"
-#define CHUNK_SIZE          1920
-#define SUBSCRIPTION_DELAY  1000
-#define LONG_PRESS_DELAY    400
-#define UPDATE_DELAY        100
-#define WATCHDOG_INTERVAL   10000
+#define SERVICE_VERSION             "1.0.0"
+#define CHUNK_SIZE                  1920
+#define LONG_PRESS_DELAY            400
+#define SUBSCRIPTION_DELAY          1000
+#define UPDATE_DATA_DELAY           100
+#define UPDATE_PROPERTIES_DELAY     1000
+#define UPDATE_WATCHDOG_INTERVAL    10000
 
 #include <QMetaEnum>
 #include "display.h"
@@ -82,10 +83,12 @@ public:
 
 private:
 
-    QTimer *m_updateTimer, *m_watchdogTimer;
-
+    QTimer *m_dataTimer, *m_propertiesTimer, *m_watchdogTimer;
     DisplayList *m_displays;
+
     QMetaEnum m_commands, m_events;
+    QString m_haPrefix, m_haStatus;
+    bool m_haEnabled, m_haUpdate;
 
     QMap <QString, Device> m_devices;
     QList <QString> m_automations, m_updates;
@@ -94,6 +97,8 @@ private:
     quint8 getEndpointId(const QString &endpoint);
 
     void publishCommands(DisplayObject *display, const QList <QString> &list);
+    void publishExposes(DisplayObject *display, bool remove = false);
+    void publishProperties(DisplayObject *display);
     void publishEvent(const QString &name, Event event);
 
     void addCommand(QList <QString> &list, quint16 page, quint16 id, const QJsonObject &data);
@@ -114,8 +119,9 @@ private slots:
     void mqttConnected(void) override;
     void mqttReceived(const QByteArray &message, const QMqttTopicName &topic) override;
 
-    void update(void);
-    void watchdog(void);
+    void updateData(void);
+    void updateProperties(void);
+    void updateWatchdog(void);
 
 };
 
