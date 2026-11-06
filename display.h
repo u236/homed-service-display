@@ -14,6 +14,8 @@
 #define CELL_PADDING                10
 #define ROW_GAP                     12
 #define WINDOW_ID                   10 // TODO: refactor magic numbers
+#define WATCHDOG_ID                 200
+#define WATCHDOG_TIMEOUT            30000
 
 #define BACKGROUND_COLOR            "#000000"
 #define HEADER_COLOR                "#888888"

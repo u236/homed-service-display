@@ -8,10 +8,13 @@ QJsonObject DeviceObject::options(quint8 endpointId, const QString &name)
     return name.isEmpty() ? options : options.value(name).toObject();
 }
 
-Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_timer(new QTimer(this)), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
+Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_updateTimer(new QTimer(this)), m_watchdogTimer(new QTimer(this)), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
-    connect(m_timer, &QTimer::timeout, this, &Controller::update);
-    m_timer->setSingleShot(true);
+    connect(m_updateTimer, &QTimer::timeout, this, &Controller::update);
+    connect(m_watchdogTimer, &QTimer::timeout, this, &Controller::watchdog);
+
+    m_updateTimer->setSingleShot(true);
+    m_watchdogTimer->start(WATCHDOG_INTERVAL);
     m_displays->init();
 }
 
@@ -742,10 +745,10 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
         if (!m_updates.contains(string))
             m_updates.append(string);
 
-        if (m_timer->isActive())
+        if (m_updateTimer->isActive())
             return;
 
-        m_timer->start(UPDATE_DELAY);
+        m_updateTimer->start(UPDATE_DELAY);
     }
 }
 
@@ -763,4 +766,21 @@ void Controller::update(void)
     }
 
     m_updates.clear();
+}
+
+void Controller::watchdog(void)
+{
+    QList <QString> list;
+
+    addCommand(list, 0, WATCHDOG_ID, {{"watchdog", WATCHDOG_TIMEOUT}});
+
+    for (int i = 0; i < m_displays->count(); i++)
+    {
+        const Display &display = m_displays->at(i);
+
+        if (display->availability() != Availability::Online)
+            continue;
+
+        publishCommands(display.data(), list);
+    }
 }

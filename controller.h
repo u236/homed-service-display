@@ -6,6 +6,7 @@
 #define SUBSCRIPTION_DELAY  1000
 #define LONG_PRESS_DELAY    400
 #define UPDATE_DELAY        100
+#define WATCHDOG_INTERVAL   10000
 
 #include <QMetaEnum>
 #include "display.h"
@@ -81,7 +82,7 @@ public:
 
 private:
 
-    QTimer *m_timer;
+    QTimer *m_updateTimer, *m_watchdogTimer;
 
     DisplayList *m_displays;
     QMetaEnum m_commands, m_events;
@@ -114,6 +115,7 @@ private slots:
     void mqttReceived(const QByteArray &message, const QMqttTopicName &topic) override;
 
     void update(void);
+    void watchdog(void);
 
 };
 
