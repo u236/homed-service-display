@@ -21,8 +21,8 @@ QList <QString> DisplayObject::layout(void)
     if (!count)
     {
         add(list, "obj", 1, 1, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}});
-        add(list, "label", 1, 2, 0, m_height / 2 - 84, m_width, 112, {{"align", "center"}, {"text", QString(QChar(0xE493))}, {"text_font", 96}, {"text_color", HEADER_COLOR}});
-        add(list, "label", 1, 3, 0, m_height / 2 + 29, m_width, 30, {{"align", "center"}, {"text", "No pages configured"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+        add(list, "label", 1, 2, 0, m_height / 2 - 56, m_width, 112, {{"align", "center"}, {"text", QString(QChar(0xE493))}, {"text_font", 96}, {"text_color", HEADER_COLOR}});
+        add(list, "label", 1, 3, 0, m_height / 2 + 105, m_width, 30, {{"align", "center"}, {"text", "No pages configured"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
     }
 
     for (int i = 0; i < count; i++)
@@ -44,11 +44,18 @@ QList <QString> DisplayObject::layout(void)
             add(list, "label", i + 1, 4, 0, bottom + 71, m_width, 28, {{"align", "center"}, {"text", "..."}, {"template", "%d.%m.%Y"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
         }
 
+        if (items.isEmpty())
+        {
+            int y = (header + bottom - (clock ? 0 : CELL_PADDING) - 196) / 2;
+            add(list, "label", i + 1, 5, 0, count > 1 || clock ? y + 19 : m_height / 2 - 56, m_width, 112, {{"align", "center"}, {"text", QString(QChar(0xE493))}, {"text_font", 96}, {"text_color", HEADER_COLOR}});
+            add(list, "label", i + 1, 6, 0, count > 1 || clock ? y + 158 : m_height / 2 + 105, m_width, 30, {{"align", "center"}, {"text", "No items configured"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+        }
+
         for (int j = 0; j < items.count() && j < rows * columns; j++)
         {
             QJsonObject item = items.at(j).toObject();
             QString endpoint = item.value("endpoint").toString(), scene = item.value("scene").toString(), expose = scene.isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = units.value(expose), name = item.value("name").toString(), text = unit.isEmpty() ? icons.value(expose, expose) : "--";
-            bool large = rows * columns == 1 && !unit.isEmpty() && expose != "thermostat";
+            bool large = rows * columns == 1 && !unit.isEmpty() && expose != "thermostat"; // TODO: separate layout for thermostat on 1x1 page
             int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = units.contains(expose) ? size / 3 : icons.contains(expose) ? size / 2 : 24;
 
             if (large)
@@ -169,7 +176,7 @@ QList <QString> DisplayObject::window(const QString &name, const QJsonObject &op
             data.insert("pad_right20", 3);
 
             add(list, "arc", 0, WINDOW_ID + 3 + i * 2, (m_width - 210) / 2, top, 210, 210, data);
-            add(list, "label", 0, WINDOW_ID + 4 + i * 2, (m_width - 210) / 2, top + 70, 210, 56, {{"parentid", WINDOW_ID}, {"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", 48}, {"text_color", TEXT_COLOR}});
+            add(list, "label", 0, WINDOW_ID + 4 + i * 2, (m_width - 210) / 2, top + 70, 210, 56, {{"parentid", WINDOW_ID}, {"click", false}, {"align", "center"}, {"text", "--"}, {"text_font", 48}, {"text_color", TEXT_COLOR}}); // TODO: draw degree sign somewhere in thermostat window
             add(list, "btn", 0, WINDOW_ID + 20 + i * 10, (m_width - 210) / 2 - 92, top + 75, 60, 60, {{"parentid", WINDOW_ID}, {"radius", 30}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", QString(QChar(0xE374))}, {"text_font", 32}, {"text_color", TEXT_COLOR}});
             add(list, "btn", 0, WINDOW_ID + 21 + i * 10, (m_width + 210) / 2 + 32, top + 75, 60, 60, {{"parentid", WINDOW_ID}, {"radius", 30}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"text", QString(QChar(0xE415))}, {"text_font", 32}, {"text_color", TEXT_COLOR}});
             continue;
@@ -296,12 +303,6 @@ Display DisplayList::parse(const QJsonObject &json)
         display = Display(new DisplayObject(id, width, height, static_cast <quint16> (json.value("home").toInt()), mqttSafe(json.value("name").toString()), pages));
         endpoint = Endpoint(new EndpointObject(DEFAULT_ENDPOINT, reinterpret_cast <const Device &> (display)));
 
-        if (json.contains("active"))
-            display->setActive(json.value("active").toBool());
-
-        if (!display->active())
-            display->setAvailability(Availability::Offline);
-
         light->setParent(endpoint.data());
         endpoint->exposes().append(light);
 
@@ -311,6 +312,19 @@ Display DisplayList::parse(const QJsonObject &json)
         antiburn->setParent(endpoint.data());
         endpoint->exposes().append(antiburn);
 
+        if (json.contains("active"))
+            display->setActive(json.value("active").toBool());
+
+        if (json.contains("discovery"))
+            display->setDiscovery(json.value("discovery").toBool());
+
+        if (json.contains("cloud"))
+            display->setCloud(json.value("cloud").toBool());
+
+        if (!display->active())
+            display->setAvailability(Availability::Offline);
+
+        display->setNote(json.value("note").toString());
         display->endpoints().insert(endpoint->id(), endpoint);
 
         display->options().insert("light",    QList <QVariant> {"level"});
@@ -352,7 +366,7 @@ QJsonArray DisplayList::serialize(void)
     for (int i = 0; i < count(); i++)
     {
         const Display &display = at(i);
-        QJsonObject json = {{"id", display->id()}, {"width", display->width()}, {"height", display->height()}, {"active", display->active()}};
+        QJsonObject json = {{"id", display->id()}, {"width", display->width()}, {"height", display->height()}, {"active", display->active()}, {"discovery", display->discovery()}, {"cloud", display->cloud()}};
 
         if (display->name() != display->id())
             json.insert("name", display->name());
@@ -362,6 +376,9 @@ QJsonArray DisplayList::serialize(void)
 
         if (!display->pages().isEmpty())
             json.insert("pages", display->pages());
+
+        if (!display->note().isEmpty())
+            json.insert("note", display->note());
 
         array.append(json);
     }

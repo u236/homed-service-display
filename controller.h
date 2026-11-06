@@ -5,8 +5,8 @@
 #define CHUNK_SIZE                  1920
 #define LONG_PRESS_DELAY            400
 #define SUBSCRIPTION_DELAY          1000
-#define UPDATE_DATA_DELAY           100
 #define UPDATE_PROPERTIES_DELAY     1000
+#define UPDATE_DATA_DELAY           100
 #define UPDATE_WATCHDOG_INTERVAL    10000
 
 #include <QMetaEnum>
@@ -62,7 +62,8 @@ public:
     {
         restartService,
         updateDevice,
-        removeDevice
+        removeDevice,
+        getProperties
     };
 
     enum class Event
@@ -83,7 +84,7 @@ public:
 
 private:
 
-    QTimer *m_dataTimer, *m_propertiesTimer, *m_watchdogTimer;
+    QTimer *m_propertiesTimer, *m_dataTimer, *m_watchdogTimer;
     DisplayList *m_displays;
 
     QMetaEnum m_commands, m_events;
@@ -119,8 +120,8 @@ private slots:
     void mqttConnected(void) override;
     void mqttReceived(const QByteArray &message, const QMqttTopicName &topic) override;
 
-    void updateData(void);
     void updateProperties(void);
+    void updateData(void);
     void updateWatchdog(void);
 
 };

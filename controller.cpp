@@ -8,19 +8,19 @@ QJsonObject DeviceObject::options(quint8 endpointId, const QString &name)
     return name.isEmpty() ? options : options.value(name).toObject();
 }
 
-Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_dataTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_watchdogTimer(new QTimer(this)), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
+Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, configFile), m_propertiesTimer(new QTimer(this)), m_dataTimer(new QTimer(this)), m_watchdogTimer(new QTimer(this)), m_displays(new DisplayList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
     m_haPrefix = getConfig()->value("homeassistant/prefix", "homeassistant").toString();
     m_haStatus = getConfig()->value("homeassistant/status", "homeassistant/status").toString();
     m_haEnabled = getConfig()->value("homeassistant/enabled", false).toBool();
     m_haUpdate = getConfig()->value("homeassistant/update", false).toBool();
 
-    connect(m_dataTimer, &QTimer::timeout, this, &Controller::updateData);
     connect(m_propertiesTimer, &QTimer::timeout, this, &Controller::updateProperties);
+    connect(m_dataTimer, &QTimer::timeout, this, &Controller::updateData);
     connect(m_watchdogTimer, &QTimer::timeout, this, &Controller::updateWatchdog);
 
-    m_dataTimer->setSingleShot(true);
     m_propertiesTimer->setSingleShot(true);
+    m_dataTimer->setSingleShot(true);
     m_watchdogTimer->start(UPDATE_WATCHDOG_INTERVAL);
 
     m_displays->init();
@@ -253,16 +253,13 @@ void Controller::displayEvent(DisplayObject *display, Event event)
         case Event::added:
         case Event::updated:
 
+            mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), {{"status", "offline"}}, true);
             mqttUnsubscribe(QString("%1/LWT").arg(topic));
+            mqttUnsubscribe(QString("%1/state/#").arg(topic));
 
-            if (!display->active())
-            {
-                mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_displays->names() ? display->name() : display->id()), {{"status", "offline"}}, true);
-                mqttUnsubscribe(QString("%1/state/#").arg(topic));
-                break;
-            }
+            if (display->active())
+                QTimer::singleShot(SUBSCRIPTION_DELAY, this, [this, topic] () { mqttSubscribe(QString("%1/LWT").arg(topic)); mqttSubscribe(QString("%1/state/#").arg(topic)); });
 
-            QTimer::singleShot(SUBSCRIPTION_DELAY, this, [this, topic] () { mqttSubscribe(QString("%1/LWT").arg(topic)); mqttSubscribe(QString("%1/state/#").arg(topic)); });
             break;
 
         default:
@@ -346,6 +343,7 @@ void Controller::mqttConnected(void)
 {
     mqttSubscribe(mqttTopic("command/%1").arg(serviceTopic()));
     mqttSubscribe(mqttTopic("service/#"));
+    mqttSubscribe(mqttTopic("td/%1/#").arg(serviceTopic()));
 
     for (int i = 0; i < m_displays->count(); i++)
     {
@@ -396,7 +394,9 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 mqttPublishString(QString("%1/clearpage").arg(topic), "all");
                 publishCommands(display.data(), display->layout());
+
                 mqttPublishString(QString("%1/page").arg(topic), display->home() ? QString::number(display->home()) : QString());
+                mqttPublishString(QString("%1/json").arg(topic), QJsonDocument(QJsonArray {"backlight", "idle", "antiburn"}).toJson(QJsonDocument::Compact));
 
                 sendAvailability(display.data());
                 sendData(display.data());
@@ -409,23 +409,48 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             QString event = json.value("event").toString();
             const Display &display = m_displays->byName(list.value(1));
 
-            if (display.isNull() || display->availability() != Availability::Online)
+            if (display.isNull() || !display->active())
                 return;
+
+            if (list.value(3) == "backlight")
+            {
+                const Endpoint &endpoint = display->endpoints().value(DEFAULT_ENDPOINT);
+                endpoint->properties().insert("status", json.value("state").toString());
+                endpoint->properties().insert("level", json.value("brightness").toInt());
+                publishProperties(display.data());
+                return;
+            }
+
+            if (list.value(3) == "antiburn")
+            {
+                const Endpoint &endpoint = display->endpoints().value(DEFAULT_ENDPOINT);
+                endpoint->properties().insert("antiburn", json.value("state").toString() == "on");
+                publishProperties(display.data());
+                return;
+            }
+
+            if (list.value(3) == "idle")
+            {
+                const Endpoint &endpoint = display->endpoints().value(DEFAULT_ENDPOINT);
+
+                if (message == "short")
+                {
+                    if (display->home())
+                        mqttPublishString(QString("hasp/%1/command/page").arg(display->id()), QString::number(display->home()));
+
+                    mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "1");
+                    display->setEndpoint(QString());
+                    display->properties().clear();
+                }
+
+                endpoint->properties().insert("idle", QString(message));
+                publishProperties(display.data());
+                return;
+            }
 
             if (list.value(3) == "page" && message.toInt() > qMax(qMin(display->pages().count(), MAX_PAGES), 1))
             {
                 mqttPublishString(QString("hasp/%1/command/page").arg(display->id()), "1");
-                return;
-            }
-
-            if (list.value(3) == "idle" && message == "short")
-            {
-                if (display->home())
-                    mqttPublishString(QString("hasp/%1/command/page").arg(display->id()), QString::number(display->home()));
-
-                mqttPublishString(QString("hasp/%1/command/p0b%2.hidden").arg(display->id()).arg(WINDOW_ID), "1");
-                display->setEndpoint(QString());
-                display->properties().clear();
                 return;
             }
 
@@ -502,10 +527,9 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                         }
                     }
 
-                    if (value.isNull())
-                        return;
+                    if (!value.isNull())
+                        mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{property, value}});
 
-                    mqttPublish(mqttTopic("td/").append(endpointId ? QString("%1/%2").arg(device->topic()).arg(endpointId) : device->topic()), {{property, value}});
                     return;
                 }
 
@@ -661,6 +685,16 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 break;
             }
+
+            case Command::getProperties:
+            {
+                const Display &display = m_displays->byName(json.value("device").toString());
+
+                if (!display.isNull())
+                    publishProperties(display.data());
+
+                break;
+            }
         }
     }
     else if (subTopic.startsWith("service/"))
@@ -804,6 +838,46 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         m_dataTimer->start(UPDATE_DATA_DELAY);
     }
+    else if (subTopic.startsWith(QString("td/%1/").arg(serviceTopic())))
+    {
+        QList <QString> list = {"status", "level", "antiburn"};
+        const Display &display = m_displays->byName(subTopic.remove(QString("td/%1/").arg(serviceTopic())).split('/').value(0));
+
+        if (display.isNull() || display->availability() != Availability::Online)
+            return;
+
+        for (auto it = json.begin(); it != json.end(); it++)
+        {
+            QString topic = QString("hasp/%1/command").arg(display->id());
+            QVariant value = it.value().toVariant();
+
+            switch (list.indexOf(it.key()))
+            {
+                case 0: // status
+                {
+                    QString state = value.toString() == "toggle" ? display->endpoints().value(DEFAULT_ENDPOINT)->properties().value("status").toString() == "on" ? "off" : "on" : value.toString();
+
+                    if (state == "on")
+                        mqttPublishString(QString("%1/idle").arg(topic), "off");
+
+                    mqttPublish(QString("%1/backlight").arg(topic), {{"state", state}});
+                    break;
+                }
+
+                case 1: // level
+                {
+                    mqttPublish(QString("%1/backlight").arg(topic), {{"brightness", value.toInt()}});
+                    break;
+                }
+
+                case 2: // antiburn
+                {
+                    mqttPublish(QString("%1/antiburn").arg(topic), {{"state", value.toBool() ? "on" : "off"}});
+                    break;
+                }
+            }
+        }
+    }
     else if (topic.name() == m_haStatus)
     {
         if (message != "online")
@@ -811,6 +885,12 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         m_propertiesTimer->start(UPDATE_PROPERTIES_DELAY);
     }
+}
+
+void Controller::updateProperties(void)
+{
+    for (int i = 0; i < m_displays->count(); i++)
+        publishProperties(m_displays->at(i).data());
 }
 
 void Controller::updateData(void)
@@ -827,19 +907,6 @@ void Controller::updateData(void)
     }
 
     m_updates.clear();
-}
-
-void Controller::updateProperties(void)
-{
-    for (int i = 0; i < m_displays->count(); i++)
-    {
-        const Display &display = m_displays->at(i);
-
-        if (display->availability() != Availability::Online)
-            continue;
-
-        publishProperties(display.data());
-    }
 }
 
 void Controller::updateWatchdog(void)
