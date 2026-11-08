@@ -31,12 +31,13 @@ QList <QString> DisplayObject::layout(void)
         QJsonArray items = page.value("items").toArray();
         QList <QString> layout = page.value("layout").toString().split('x');
         bool portrait = m_height > m_width, clock = page.value("clock").toBool();
-        int header = count > 1 ? HEADER_HEIGHT : 0, bottom = m_height - (count > 1 ? NAVIGATION_HEIGHT : 0) - (clock ? CLOCK_HEIGHT : 0), rows = clock && layout.value(0) == "3" ? 2 : layout.value(portrait ? 1 : 0).toInt(), columns = layout.value(portrait ? 0 : 1).toInt(), cellWidth = (m_width - CELL_PADDING) / columns - CELL_PADDING, cellHeight = (bottom - (clock ? 0 : CELL_PADDING) - header - CELL_PADDING) / rows - CELL_PADDING, level = qMax(rows, columns - 1), labelFont = 28 - level * 4, labelGap = labelFont / 2 - 4, labelHeight = labelFont * 5 / 4 + labelGap * 2, size = qMin(qMin(cellWidth, cellHeight - labelHeight), sizes.value(level - 1)), gap = (m_width - columns * size) / (columns + 1), pitch = qMin(cellHeight + CELL_PADDING, size + labelHeight + ROW_GAP), top = header + CELL_PADDING + rows * (cellHeight + CELL_PADDING - pitch) / 2;
+        int header = count > 1 ? HEADER_HEIGHT : 0, bottom = m_height - (count > 1 ? NAVIGATION_HEIGHT : 0) - (clock ? CLOCK_HEIGHT : 0), rows = clock && layout.value(0) == "3" ? 2 : layout.value(portrait ? 1 : 0).toInt(), columns = layout.value(portrait ? 0 : 1).toInt(), cellWidth = (m_width - CELL_PADDING) / columns - CELL_PADDING, cellHeight = (bottom - (clock ? 0 : CELL_PADDING) - header - CELL_PADDING) / rows - CELL_PADDING, level = qMax(rows, columns - 1), labelFont = 28 - level * 4, labelGap = labelFont / 2 - 4, labelHeight = labelFont * 5 / 4 + labelGap * 2, size = qMin(qMin(cellWidth, cellHeight - labelHeight), sizes.value(level - 1)), gap = (m_width - columns * size) / (columns + 1), pitch = qMin(cellHeight + CELL_PADDING, size + labelHeight + ROW_GAP), top = header + CELL_PADDING + rows * (cellHeight + CELL_PADDING - pitch) / 2; // TODO: check rows for portrait orientation, 4 without clock and 3 with clock
+        QString name = page.value("name").toString().trimmed();
 
         add(list, "obj", i + 1, 1, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}});
 
         if (count > 1)
-            add(list, "label", i + 1, 2, 0, HEADER_HEIGHT / 2 - 14, m_width, 28, {{"align", "center"}, {"text", page.value("name").toString()}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+            add(list, "label", i + 1, 2, 0, HEADER_HEIGHT / 2 - 14, m_width, 28, {{"align", "center"}, {"text", name.isEmpty() ? QString("Page %1").arg(i + 1) : name}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
 
         if (clock)
         {
@@ -82,7 +83,8 @@ QList <QString> DisplayObject::layout(void)
     for (int i = 0; count > 1 && i < count; i++)
     {
         int width = (m_width - (count - 1) * NAVIGATION_GAP) / count, x = i * (width + NAVIGATION_GAP);
-        add(list, "btn", 0, i + 1, x, m_height - NAVIGATION_HEIGHT, i < count - 1 ? width : m_width - x, NAVIGATION_HEIGHT, {{"action", QJsonObject {{"down", QString("page %1").arg(i + 1)}}}, {"radius", 0}, {"border_width", 0}, {"bg_color", ACCENT_COLOR}, {"text", m_pages.at(i).toObject().value("name").toString()}, {"text_font", 24}, {"text_color", TEXT_COLOR}});
+        QString name = m_pages.at(i).toObject().value("name").toString().trimmed();
+        add(list, "btn", 0, i + 1, x, m_height - NAVIGATION_HEIGHT, i < count - 1 ? width : m_width - x, NAVIGATION_HEIGHT, {{"action", QJsonObject {{"down", QString("page %1").arg(i + 1)}}}, {"radius", 0}, {"border_width", 0}, {"bg_color", ACCENT_COLOR}, {"text", name.isEmpty() ? QString("Page %1").arg(i + 1) : name}, {"text_font", 24}, {"text_color", TEXT_COLOR}});
     }
 
     add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
@@ -289,7 +291,7 @@ Display DisplayList::parse(const QJsonObject &json)
     {
         QJsonObject page = it->toObject();
 
-        if (list.contains(page.value("layout").toString()) && !page.value("name").toString().trimmed().isEmpty())
+        if (list.contains(page.value("layout").toString()))
             continue;
 
         return display;
