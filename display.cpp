@@ -78,6 +78,12 @@ QList <QString> DisplayObject::layout(void)
 
             add(list, "label", i + 1, id + 1, x - gap / 2, y + height + labelGap, size + gap, labelFont * 5 / 4, {{"align", "center"}, {"text", name}, {"text_font", labelFont}, {"text_color", HEADER_COLOR}});
         }
+
+        for (int j = items.count(); !items.isEmpty() && j < rows * columns; j++)
+        {
+            int x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - size) / 2;
+            add(list, "obj", i + 1, (j + 1) * 10, x, y, size, size, {{"click", false}, {"radius", size / 2}, {"border_width", 0}, {"bg_color", BUTTON_COLOR}, {"bg_opa", 50}});
+        }
     }
 
     for (int i = 0; count > 1 && i < count; i++)
