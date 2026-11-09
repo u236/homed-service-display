@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/etc/init.d/homed-display stop
+/etc/init.d/homed-display disable
+
+exit 0

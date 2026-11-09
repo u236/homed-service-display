@@ -1,0 +1,4 @@
+name = homed-display
+description = HOMEd Display Service
+maintainer = u236 <mail@u236.org>
+depends = homed-qt

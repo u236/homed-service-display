@@ -1,0 +1,6 @@
+#!/bin/bash
+
+systemctl stop homed-display.service
+systemctl disable homed-display.service
+
+exit 0

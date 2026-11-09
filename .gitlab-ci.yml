@@ -1,0 +1,7 @@
+variables:
+  NAME: homed-display
+  PACKAGE_EXTRA: mkdir -p deploy/data/opt/homed-display
+
+include:
+- project: 'homed/services/homed-common'
+  file: '.gitlab-ci/pipeline.yml'
