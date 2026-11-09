@@ -26,6 +26,11 @@ Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, confi
     m_displays->init();
 }
 
+QString Controller::valueString(const QVariant &value)
+{
+    return value.type() == QVariant::Double ? QString::number(qRound(value.toDouble() * 10) / 10.0) : value.toString();
+}
+
 Device Controller::findDevice(const QString &search)
 {
     for (auto it = m_devices.begin(); it != m_devices.end(); it++)
@@ -152,14 +157,14 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
 
                 case 3: // temperature
                 {
-                    addCommand(list, 0, id, {{"text", properties.value(property).toString()}});
+                    addCommand(list, 0, id, {{"text", valueString(properties.value(property))}});
                     break;
                 }
 
                 case 4: // targetTemperature
                 {
                     addCommand(list, 0, id, {{"val", qRound(properties.value(property).toDouble() / device->options(endpointId, property).value("step").toDouble(1))}});
-                    addCommand(list, 0, id + 1, {{"text", properties.value(property).toString()}, {"text_color", properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR}});
+                    addCommand(list, 0, id + 1, {{"text", valueString(properties.value(property))}, {"text_color", properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR}});
                     break;
                 }
 
@@ -202,8 +207,8 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
 
                 case 2: // thermostat
                 {
-                    addCommand(list, item.page, item.id + 2, {{"text", properties.value("temperature").toString()}});
-                    addCommand(list, item.page, item.id, {{"text", properties.value("targetTemperature").toString()}, {"text_color", properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR}});
+                    addCommand(list, item.page, item.id + 2, {{"text", valueString(properties.value("temperature"))}});
+                    addCommand(list, item.page, item.id, {{"text", valueString(properties.value("targetTemperature"))}, {"text_color", properties.value("running").toBool() ? ACCENT_COLOR : TEXT_COLOR}});
                     break;
                 }
 
@@ -223,7 +228,7 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
                         break;
                     }
 
-                    addCommand(list, item.page, item.id, {{"text", value.toString()}});
+                    addCommand(list, item.page, item.id, {{"text", valueString(value)}});
                     break;
                 }
             }
@@ -534,7 +539,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 if (event == "changed" && display->properties().value((id - WINDOW_ID - 3) / 2) == "targetTemperature")
                 {
                     QList <QString> list;
-                    addCommand(list, 0, id + 1, {{"text", QString::number(json.value("val").toInt() * device->options(endpointId, "targetTemperature").value("step").toDouble(1))}, {"text_color", HEADER_COLOR}});
+                    addCommand(list, 0, id + 1, {{"text", valueString(json.value("val").toInt() * device->options(endpointId, "targetTemperature").value("step").toDouble(1))}, {"text_color", HEADER_COLOR}});
                     publishCommands(display.data(), list);
                 }
 

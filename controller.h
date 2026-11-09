@@ -94,6 +94,8 @@ private:
     QMap <QString, Device> m_devices;
     QList <QString> m_automations, m_updates;
 
+    QString valueString(const QVariant &value);
+
     Device findDevice(const QString &search);
     quint8 getEndpointId(const QString &endpoint);
 
