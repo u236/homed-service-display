@@ -216,12 +216,10 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
 
                     if (value.type() == QVariant::Bool)
                     {
-                        bool check = itemName == "contact" ? !value.toBool() : value.toBool();
-
                         if (itemName == "contact")
-                            addCommand(list, item.page, item.id, {{"text", QString(QChar(check ? 0xE81C : 0xE81B))}});
+                            addCommand(list, item.page, item.id, {{"text", QString(QChar(value.toBool() ? 0xE81C : 0xE81B))}});
 
-                        addCommand(list, item.page, item.id, {{"text_color", check ? itemName == "waterLeak" ? ALARM_COLOR : ACCENT_COLOR : TEXT_COLOR}});
+                        addCommand(list, item.page, item.id, {{"text_color", value.toBool() ? itemName == "waterLeak" ? ALARM_COLOR : ACCENT_COLOR : TEXT_COLOR}});
                         break;
                     }
 
