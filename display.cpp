@@ -88,7 +88,7 @@ QList <QString> DisplayObject::layout(void)
     }
 
     add(list, "obj", 0, WINDOW_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}});
-    add(list, "obj", 0, WATCHDOG_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}, {"watchdog", WATCHDOG_TIMEOUT}});
+    add(list, "obj", 0, WATCHDOG_ID, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}, {"hidden", true}, {"timer_action", QJsonObject {{"start", QString("p0b%1.hidden=1").arg(WATCHDOG_ID)}, {"timeout", QString("p0b%1.hidden=0").arg(WATCHDOG_ID)}}}, {"timer_interval", WATCHDOG_TIMEOUT}});
     add(list, "label", 0, WATCHDOG_ID + 1, 0, m_height / 2 - 56, m_width, 112, {{"parentid", WATCHDOG_ID}, {"click", false}, {"align", "center"}, {"text", QString(QChar(0xE026))}, {"text_font", 96}, {"text_color", ACCENT_COLOR}});
     add(list, "label", 0, WATCHDOG_ID + 2, 0, m_height / 2 + 105, m_width, 30, {{"parentid", WATCHDOG_ID}, {"click", false}, {"align", "center"}, {"text", "Display offline"}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
     return list;

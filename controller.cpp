@@ -913,7 +913,7 @@ void Controller::updateWatchdog(void)
 {
     QList <QString> list;
 
-    addCommand(list, 0, WATCHDOG_ID, {{"watchdog", WATCHDOG_TIMEOUT}});
+    addCommand(list, 0, WATCHDOG_ID, {{"timer_interval", WATCHDOG_TIMEOUT}});
 
     for (int i = 0; i < m_displays->count(); i++)
     {
