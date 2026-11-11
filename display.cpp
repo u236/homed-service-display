@@ -212,8 +212,8 @@ QList <QString> DisplayObject::layout(void)
             if (sensors.contains(expose) && !large)
                 icon.clear();
 
-            if (!icon.isEmpty())
-                text = large ? QString("%1 %2").arg(icon, text) : icon;
+            if (!icon.isEmpty() && !large) // TODO: draw sensor icon on 1x1 page, icon glyphs are not rendered with font size above 127
+                text = icon;
 
             if (large)
                 add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
