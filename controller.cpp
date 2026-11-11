@@ -228,7 +228,7 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
                         break;
                     }
 
-                    addCommand(list, item.page, item.id, {{"text", valueString(value)}});
+                    addCommand(list, item.page, item.id, {{"text", item.icon.isEmpty() ? valueString(value) : QString(item.icon).append(0x20).append(valueString(value))}});
                     break;
                 }
             }

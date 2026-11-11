@@ -161,7 +161,7 @@ QList <QString> DisplayObject::layout(void)
 {
     QList <QString> list;
     QList <int> sizes = {150, 115, 80};
-    QMap <QString, QString> sensors = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
+    QMap <QString, QString> sensors = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}, {"temperature", QChar(0xE50F)}, {"humidity", QChar(0xE58E)}, {"co2", QChar(0xE32A)}, {"power", QChar(0xF40B)}};
     int count = qMin(m_pages.count(), MAX_PAGES);
 
     m_endpoint.clear();
@@ -205,12 +205,15 @@ QList <QString> DisplayObject::layout(void)
         for (int j = 0; j < items.count() && j < rows * columns; j++)
         {
             QJsonObject item = items.at(j).toObject();
-            QString endpoint = item.value("endpoint").toString(), scene = item.value("scene").toString(), expose = scene.isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = sensors.value(expose), name = item.value("name").toString(), text = sensors.contains(expose) ? "--" : icons.value(expose, expose), icon = sensors.contains(expose) ? QString() : iconList.value(item.value("icon").toString());
+            QString endpoint = item.value("endpoint").toString(), scene = item.value("scene").toString(), expose = scene.isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = sensors.value(expose), name = item.value("name").toString(), text = sensors.contains(expose) ? "--" : icons.value(expose, expose), icon = iconList.value(item.value("icon").toString(), sensors.contains(expose) ? icons.value(expose) : QString());
             bool large = rows * columns == 1 && sensors.contains(expose) && expose != "thermostat"; // TODO: separate layout for thermostat on 1x1 page
             int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = sensors.contains(expose) ? size / 3 : icons.contains(expose) || !icon.isEmpty() ? size / 2 : 24;
 
+            if (sensors.contains(expose) && !large)
+                icon.clear();
+
             if (!icon.isEmpty())
-                text = icon;
+                text = large ? QString("%1 %2").arg(icon, text) : icon;
 
             if (large)
                 add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
