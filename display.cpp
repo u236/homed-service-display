@@ -4,6 +4,156 @@
 #include "expose.h"
 #include "logger.h"
 
+static const QMap <QString, QString> iconList =
+{
+    {"mdi:account",                     QChar(0xE004)},
+    {"mdi:air-conditioner",             QChar(0xE01B)},
+    {"mdi:alert",                       QChar(0xE026)},
+    {"mdi:arrow-down",                  QChar(0xE045)},
+    {"mdi:arrow-down-box",              QChar(0xE6C0)},
+    {"mdi:arrow-left",                  QChar(0xE04D)},
+    {"mdi:arrow-left-box",              QChar(0xE6C1)},
+    {"mdi:arrow-right",                 QChar(0xE054)},
+    {"mdi:arrow-right-box",             QChar(0xE6C2)},
+    {"mdi:arrow-up",                    QChar(0xE05D)},
+    {"mdi:arrow-up-box",                QChar(0xE6C3)},
+    {"mdi:battery-high",                QChar(0xF2A3)},
+    {"mdi:battery-low",                 QChar(0xF2A1)},
+    {"mdi:battery-medium",              QChar(0xF2A2)},
+    {"mdi:battery-outline",             QChar(0xE08E)},
+    {"mdi:bed",                         QChar(0xE2E3)},
+    {"mdi:bell",                        QChar(0xE09A)},
+    {"mdi:blinds",                      QChar(0xE0AC)},
+    {"mdi:blinds-open",                 QChar(0xF011)},
+    {"mdi:bluetooth",                   QChar(0xE0AF)},
+    {"mdi:calendar",                    QChar(0xE0ED)},
+    {"mdi:car",                         QChar(0xE10B)},
+    {"mdi:cctv",                        QChar(0xE7AE)},
+    {"mdi:ceiling-light",               QChar(0xE769)},
+    {"mdi:cellphone",                   QChar(0xE11C)},
+    {"mdi:check",                       QChar(0xE12C)},
+    {"mdi:chevron-down",                QChar(0xE140)},
+    {"mdi:chevron-left",                QChar(0xE141)},
+    {"mdi:chevron-right",               QChar(0xE142)},
+    {"mdi:chevron-up",                  QChar(0xE143)},
+    {"mdi:clock-outline",               QChar(0xE150)},
+    {"mdi:close",                       QChar(0xE156)},
+    {"mdi:cloud-search-outline",        QChar(0xE957)},
+    {"mdi:coach-lamp",                  QChar(0xF020)},
+    {"mdi:coffee",                      QChar(0xE176)},
+    {"mdi:cog",                         QChar(0xE493)},
+    {"mdi:desk-lamp",                   QChar(0xE95F)},
+    {"mdi:dishwasher",                  QChar(0xEAAC)},
+    {"mdi:door-closed",                 QChar(0xE81B)},
+    {"mdi:door-closed-lock",            QChar(0xF0AF)},
+    {"mdi:door-open",                   QChar(0xE81C)},
+    {"mdi:dots-vertical",               QChar(0xE1D9)},
+    {"mdi:engine",                      QChar(0xE1FA)},
+    {"mdi:ev-station",                  QChar(0xE5F1)},
+    {"mdi:fan",                         QChar(0xE210)},
+    {"mdi:fire",                        QChar(0xE238)},
+    {"mdi:floor-lamp",                  QChar(0xE8DD)},
+    {"mdi:fountain",                    QChar(0xE96B)},
+    {"mdi:fridge-outline",              QChar(0xE28F)},
+    {"mdi:garage-open-variant",         QChar(0xF2D4)},
+    {"mdi:garage-variant",              QChar(0xF2D3)},
+    {"mdi:history",                     QChar(0xE2DA)},
+    {"mdi:home",                        QChar(0xE2DC)},
+    {"mdi:home-outline",                QChar(0xE6A1)},
+    {"mdi:human-greeting",              QChar(0xF7C4)},
+    {"mdi:kettle",                      QChar(0xE5FA)},
+    {"mdi:key-variant",                 QChar(0xE30B)},
+    {"mdi:lamp",                        QChar(0xE6B5)},
+    {"mdi:laptop",                      QChar(0xE322)},
+    {"mdi:leaf",                        QChar(0xE32A)},
+    {"mdi:lightbulb",                   QChar(0xE335)},
+    {"mdi:lightbulb-on",                QChar(0xE6E8)},
+    {"mdi:lightning-bolt",              QChar(0xF40B)},
+    {"mdi:lock",                        QChar(0xE33E)},
+    {"mdi:lock-open-variant",           QChar(0xEFC6)},
+    {"mdi:microwave",                   QChar(0xEC99)},
+    {"mdi:minus",                       QChar(0xE374)},
+    {"mdi:monitor-speaker",             QChar(0xEF5F)},
+    {"mdi:music",                       QChar(0xE75A)},
+    {"mdi:outdoor-lamp",                QChar(0xF054)},
+    {"mdi:pause",                       QChar(0xE3E4)},
+    {"mdi:play",                        QChar(0xE40A)},
+    {"mdi:plus",                        QChar(0xE415)},
+    {"mdi:pool",                        QChar(0xE606)},
+    {"mdi:power",                       QChar(0xE425)},
+    {"mdi:power-plug",                  QChar(0xE6A5)},
+    {"mdi:radiator",                    QChar(0xE438)},
+    {"mdi:radiator-disabled",           QChar(0xEAD7)},
+    {"mdi:radiator-off",                QChar(0xEAD8)},
+    {"mdi:recycle-variant",             QChar(0xF39D)},
+    {"mdi:repeat",                      QChar(0xE456)},
+    {"mdi:repeat-off",                  QChar(0xE457)},
+    {"mdi:repeat-once",                 QChar(0xE458)},
+    {"mdi:robot-mower-outline",         QChar(0xF1F3)},
+    {"mdi:robot-vacuum",                QChar(0xE70D)},
+    {"mdi:run",                         QChar(0xE70E)},
+    {"mdi:shield-check",                QChar(0xE565)},
+    {"mdi:shield-home",                 QChar(0xE68A)},
+    {"mdi:shield-lock",                 QChar(0xE99D)},
+    {"mdi:shower",                      QChar(0xE9A0)},
+    {"mdi:shuffle",                     QChar(0xE49D)},
+    {"mdi:shuffle-disabled",            QChar(0xE49E)},
+    {"mdi:silverware-fork-knife",       QChar(0xEA70)},
+    {"mdi:skip-next",                   QChar(0xE4AD)},
+    {"mdi:skip-previous",               QChar(0xE4AE)},
+    {"mdi:snowflake",                   QChar(0xE717)},
+    {"mdi:sofa",                        QChar(0xE4B9)},
+    {"mdi:solar-panel",                 QChar(0xED9B)},
+    {"mdi:solar-panel-large",           QChar(0xED9C)},
+    {"mdi:solar-power",                 QChar(0xEA72)},
+    {"mdi:solar-power-variant-outline", QChar(0xFA74)},
+    {"mdi:speaker",                     QChar(0xE4C3)},
+    {"mdi:stop",                        QChar(0xE4DB)},
+    {"mdi:stove",                       QChar(0xE4DE)},
+    {"mdi:string-lights",               QChar(0xF2BA)},
+    {"mdi:subdirectory-arrow-left",     QChar(0xE60C)},
+    {"mdi:television",                  QChar(0xE502)},
+    {"mdi:thermometer",                 QChar(0xE50F)},
+    {"mdi:timer-outline",               QChar(0xE51B)},
+    {"mdi:toilet",                      QChar(0xE9AB)},
+    {"mdi:transmission-tower",          QChar(0xED3E)},
+    {"mdi:transmission-tower-export",   QChar(0xF92C)},
+    {"mdi:transmission-tower-import",   QChar(0xF92D)},
+    {"mdi:trash-can-outline",           QChar(0xEA7A)},
+    {"mdi:tumble-dryer",                QChar(0xE917)},
+    {"mdi:vanity-light",                QChar(0xF1E1)},
+    {"mdi:volume-high",                 QChar(0xE57E)},
+    {"mdi:volume-medium",               QChar(0xE580)},
+    {"mdi:volume-mute",                 QChar(0xE75F)},
+    {"mdi:wall-sconce",                 QChar(0xE91C)},
+    {"mdi:washing-machine",             QChar(0xE72A)},
+    {"mdi:water",                       QChar(0xE58C)},
+    {"mdi:water-percent",               QChar(0xE58E)},
+    {"mdi:water-pump",                  QChar(0xE58F)},
+    {"mdi:weather-cloudy",              QChar(0xE590)},
+    {"mdi:weather-fog",                 QChar(0xE591)},
+    {"mdi:weather-hail",                QChar(0xE592)},
+    {"mdi:weather-hazy",                QChar(0xEF30)},
+    {"mdi:weather-lightning",           QChar(0xE593)},
+    {"mdi:weather-lightning-rainy",     QChar(0xE67E)},
+    {"mdi:weather-night",               QChar(0xE594)},
+    {"mdi:weather-night-partly-cloudy", QChar(0xEF31)},
+    {"mdi:weather-partly-cloudy",       QChar(0xE595)},
+    {"mdi:weather-pouring",             QChar(0xE596)},
+    {"mdi:weather-rainy",               QChar(0xE597)},
+    {"mdi:weather-snowy",               QChar(0xE598)},
+    {"mdi:weather-snowy-rainy",         QChar(0xE67F)},
+    {"mdi:weather-sunny",               QChar(0xE599)},
+    {"mdi:weather-windy",               QChar(0xE59D)},
+    {"mdi:weather-windy-variant",       QChar(0xE59E)},
+    {"mdi:white-balance-sunny",         QChar(0xE5A8)},
+    {"mdi:wifi",                        QChar(0xE5A9)},
+    {"mdi:window-closed-variant",       QChar(0xF1DB)},
+    {"mdi:window-shutter",              QChar(0xF11C)},
+    {"mdi:window-shutter-alert",        QChar(0xF11D)},
+    {"mdi:window-shutter-open",         QChar(0xF11E)}
+};
+
 
 
 // NOT REVIEWED
@@ -11,7 +161,7 @@ QList <QString> DisplayObject::layout(void)
 {
     QList <QString> list;
     QList <int> sizes = {150, 115, 80};
-    QMap <QString, QString> units = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
+    QMap <QString, QString> sensors = {{"temperature", "°C"}, {"humidity", "%"}, {"co2", "ppm"}, {"power", "W"}, {"thermostat", "°C"}}, icons = {{"switch", QChar(0xE425)}, {"light", QChar(0xE335)}, {"scene", QChar(0xE40A)}, {"waterLeak", QChar(0xE58C)}, {"occupancy", QChar(0xE004)}, {"contact", QChar(0xE81B)}};
     int count = qMin(m_pages.count(), MAX_PAGES);
 
     m_endpoint.clear();
@@ -55,9 +205,12 @@ QList <QString> DisplayObject::layout(void)
         for (int j = 0; j < items.count() && j < rows * columns; j++)
         {
             QJsonObject item = items.at(j).toObject();
-            QString endpoint = item.value("endpoint").toString(), scene = item.value("scene").toString(), expose = scene.isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = units.value(expose), name = item.value("name").toString(), text = unit.isEmpty() ? icons.value(expose, expose) : "--";
-            bool large = rows * columns == 1 && !unit.isEmpty() && expose != "thermostat"; // TODO: separate layout for thermostat on 1x1 page
-            int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = units.contains(expose) ? size / 3 : icons.contains(expose) ? size / 2 : 24;
+            QString endpoint = item.value("endpoint").toString(), scene = item.value("scene").toString(), expose = scene.isEmpty() ? item.value("expose").toString().split('_').value(0) : "scene", unit = sensors.value(expose), name = item.value("name").toString(), text = sensors.contains(expose) ? "--" : icons.value(expose, expose), icon = sensors.contains(expose) ? QString() : iconList.value(item.value("icon").toString());
+            bool large = rows * columns == 1 && sensors.contains(expose) && expose != "thermostat"; // TODO: separate layout for thermostat on 1x1 page
+            int id = (j + 1) * 10, height = large ? 120 : size, x = gap + j % columns * (size + gap), y = top + j / columns * pitch + (pitch - CELL_PADDING - labelHeight - height) / 2, font = sensors.contains(expose) ? size / 3 : icons.contains(expose) || !icon.isEmpty() ? size / 2 : 24;
+
+            if (!icon.isEmpty())
+                text = icon;
 
             if (large)
                 add(list, "label", i + 1, id, 0, y - 20, m_width, 160, {{"align", "center"}, {"text", text}, {"text_font", 130}, {"text_color", TEXT_COLOR}});
@@ -71,7 +224,7 @@ QList <QString> DisplayObject::layout(void)
                 name = QString("Item %1").arg(j + 1);
 
             if (!endpoint.isEmpty() || !scene.isEmpty())
-                m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), name, endpoint, item.value("expose").toString(), scene});
+                m_items.append({static_cast <quint16> (i + 1), static_cast <quint16> (id), name, endpoint, item.value("expose").toString(), scene, icon});
 
             if (!unit.isEmpty())
                 name = QString("%1, %2").arg(name, unit);
@@ -397,13 +550,14 @@ QJsonArray DisplayList::serialize(void)
 void DisplayList::writeDatabase(void)
 {
     HOMEd *homed = reinterpret_cast <HOMEd*> (parent());
-    QJsonObject json = {{"devices", serialize()}, {"names", m_names}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}};
+    QJsonObject json = {{"devices", serialize()}, {"icons", QJsonArray::fromStringList(iconList.keys())}, {"names", m_names}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}};
 
     homed->mqttPublishStatus(json);
 
     if (!m_sync)
         return;
 
+    json.remove("icons");
     json.remove("names");
     m_sync = false;
 

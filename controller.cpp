@@ -221,7 +221,7 @@ void Controller::sendData(DisplayObject *display, const QString &filter)
 
                     if (value.type() == QVariant::Bool)
                     {
-                        if (itemName == "contact")
+                        if (itemName == "contact" && item.icon.isEmpty())
                             addCommand(list, item.page, item.id, {{"text", QString(QChar(value.toBool() ? 0xE81C : 0xE81B))}});
 
                         addCommand(list, item.page, item.id, {{"text_color", value.toBool() ? itemName == "waterLeak" ? ALARM_COLOR : ACCENT_COLOR : TEXT_COLOR}});

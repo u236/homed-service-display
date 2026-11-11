@@ -33,7 +33,7 @@
 struct DisplayItem
 {
     quint16 page, id;
-    QString name, endpoint, expose, scene;
+    QString name, endpoint, expose, scene, icon;
 };
 
 class EndpointObject : public AbstractEndpointObject
