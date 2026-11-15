@@ -187,7 +187,7 @@ QList <QString> DisplayObject::layout(void)
         add(list, "obj", i + 1, 1, 0, 0, m_width, m_height, {{"radius", 0}, {"border_width", 0}, {"bg_color", BACKGROUND_COLOR}});
 
         if (count > 1)
-            add(list, "label", i + 1, 2, 0, HEADER_HEIGHT / 2 - 14, m_width, 28, {{"align", "center"}, {"text", name.isEmpty() ? QString("Page %1").arg(i + 1) : name}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
+            add(list, "label", i + 1, 2, 0, HEADER_HEIGHT / 2 - 14, m_width, 30, {{"align", "center"}, {"text", name.isEmpty() ? QString("Page %1").arg(i + 1) : name}, {"text_font", 24}, {"text_color", HEADER_COLOR}});
 
         if (clock)
         {
